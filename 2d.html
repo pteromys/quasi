@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<title>Quasicrystals</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<style type="text/css">
+		html, body { width: 100%; height: 100%; margin: 0px; padding: 0px; }
+		body { background: #000; }
+		canvas { width: 100%; height: 100%; display: block; }
+		.overlay {
+			position: absolute;
+			top: 1em; bottom: 2em; left: 1em; right: 1em;
+			margin: 0em; padding: 0em;
+			text-align: center;
+			display: none;
+		}
+		.overlay:target {
+			display: block;
+		}
+		.box {
+			display: inline-block;
+			vertical-align: middle;
+			background: #333;
+			color: #fff;
+			padding: 0.5em 1.5em;
+			max-width: 25em;
+			text-align: left;
+			border-radius: 1em;
+			overflow-y: auto;
+			max-height: 100%;
+		}
+		.box p {
+			line-height: 1.5;
+			margin: 1em 0em;
+		}
+		.box a:link { color: #7bf; }
+		.box a:visited { color: #d7f; }
+		.box a:hover { color: #bdf; }
+		.box a:active { color: #ffc; }
+		.button {
+			font-family: sans;
+			font-weight: bold;
+			font-size: 200%;
+			width: 1em;
+			height: 1em;
+			margin: 0.5em;
+			color: #fff;
+			background: #666;
+			background: rgba(255, 255, 255, 0.25);
+			opacity: 0.8;
+			border-radius: 0.5em;
+		}
+		.button:hover {
+			opacity: 1.0;
+		}
+		.button > a, .box .button > a {
+			color: inherit;
+			text-decoration: none;
+			display: block;
+			width: 1em;
+			height: 1em;
+			text-align: center;
+			line-height: 1em;
+		}
+		body > .button {
+			position: absolute;
+			bottom: 0.25em;
+			right: 0.25em;
+		}
+		.box .button {
+			float: right;
+			margin-right: -0.5em;
+			margin-top: 0em;
+		}
+	</style>
+	<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+	<script type="text/javascript">
+		window.requestAnimFrame =
+			window.requestAnimationFrame ||
+			window.webkitRequestAnimationFrame ||
+			window.mozRequestAnimationFrame ||
+			window.oRequestAnimationFrame ||
+			window.msRequestAnimationFrame ||
+			function (callback, element) {
+				window.setTimeout(function () {
+					return callback((new Date()).valueOf() + 16);
+				}, 16);
+			};
+		var V = {
+			dot: function (x, y) {
+				var ans = 0;
+				for (var i = Math.min(x.length, y.length) - 1; i >= 0; i--) {
+					ans += x[i] * y[i];
+				}
+				return ans;
+			},
+			scale: function (v, a) {
+				return v.map(function (x) { return x * a; });
+			},
+			zero: function (n) {
+				var ans = new Array(n);
+				for (var i = 0; i < n; i++) { ans[i] = 0; }
+				return ans;
+			},
+		};
+		var M = {
+			mul: function (m, v) {
+				var ans = V.zero(m.length);
+				for (var i = 0; i < ans.length; i++) {
+					for (var j = 0; j < v.length; j++) {
+						ans[i] += m[i][j] * v[j];
+					}
+				}
+				return ans;
+			},
+		};
+		var Vertex = function (indices, quasilattice) {
+			this.lattice = quasilattice;
+			this.indices = indices.slice(); // Make a copy
+			this.xy = quasilattice.xy(indices);
+			this.displacement = quasilattice.displacement(indices, this.xy);
+		};
+		Vertex.prototype.toString = function () {
+			return this.indices.join(' ');
+		};
+		var QuasiLattice = function (n) { // n = degree of symmetry
+			this.n = n;
+			this.x = V.zero(n);
+			this.y = V.zero(n);
+			this.dx = V.zero(n-1);
+			this.dy = V.zero(n-1);
+			var norm = Math.sqrt(2/n);
+			for (var i = 0; i < n; i++) {
+				this.x[i] = Math.cos(2 * Math.PI * i / n) * norm;
+				this.y[i] = Math.sin(2 * Math.PI * i / n) * norm;
+			}
+			for (var i = 0; i < n - 1; i++) {
+				this.dx[i] = this.x[i] - this.x[i+1];
+				this.dy[i] = this.y[i] - this.y[i+1];
+			}
+			this.trace = -2 * Math.cos(2 * Math.PI / n);
+			this.verts = [new Vertex(V.zero(n-1), this)];
+			this.border_verts = [this.verts[0]];
+			this.vert_names = {};
+			this.vert_names[this.verts[0].toString()] = true;
+		};
+		QuasiLattice.prototype = {
+			displacement: function (indices, xy) {
+				var v = V.zero(this.n);
+				for (var i = 0; i < this.n - 1; i++) {
+					v[i] += indices[i];
+					v[i+1] -= indices[i];
+				}
+				for (var i = 0; i < v.length; i++) {
+					v[i] -= this.x[i] * xy[0] + this.y[i] * xy[1];
+				}
+				return v;
+			},
+			xy: function (indices) {
+				return [V.dot(this.dx, indices), V.dot(this.dy, indices)];
+			},
+			addVerts: function () {
+				var v = this.border_verts.shift();
+				var indices, indices2;
+				for (var i = 0; i < this.n - 1; i++) {
+					indices = v.indices.slice();
+					indices2 = v.indices.slice();
+					indices[i] += 1;
+					indices2[i] -= 1;
+					this.addVert(indices);
+					this.addVert(indices2);
+				}
+				indices = v.indices.slice();
+				indices2 = v.indices.slice();
+				for (var j = 0; j < this.n - 1; j++) {
+					indices[j] = 1;
+					indices2[j] -= 1;
+				}
+				this.addVert(indices);
+				this.addVert(indices2);
+			},
+			addVert: function (indices) {
+				if (this.vert_names[indices.join(' ')]) { return false; }
+				var nv = new Vertex(indices, this);
+				this.verts.push(nv);
+				this.vert_names[nv.toString()] = true;
+				if (V.dot(nv.displacement, nv.displacement) <= 9) {
+					this.border_verts.push(nv);
+				}
+				return nv;
+			},
+			draw: function (context, boxsize) {
+				// Set up context
+				var g = context.createRadialGradient(0, 0, 0, 0, 0, 1);
+				g.addColorStop(0, '#fff');
+				g.addColorStop(0.5, '#0f0');
+				g.addColorStop(1, '#000');
+				var m = context.canvas;
+				var w = context.canvas.width = window.innerWidth;
+				var h = context.canvas.height = window.innerHeight;
+				var r = Math.sqrt(w*w + h*h)/2;
+				var sigma = Math.pow(this.n, -0.25);
+				var dotsize = 0.2 * Math.pow(2 * Math.PI * sigma, 0.25 * (3 - this.n)) * Math.pow(this.n, 0.25);
+				//var variance = 2 * Math.PI * Math.pow(this.n, 3 - this.n); // sigma * sigma;
+				var variance = sigma * sigma;
+				context = context.canvas.getContext('2d');
+				context.fillStyle = g;
+				context.globalCompositeOperation = 'lighter';
+				context.translate(context.canvas.width/2, context.canvas.height/2);
+				//context.scale(r/3, r/3);
+				context.scale(50, 50);
+				// Set up indices
+				var indices = new Array(this.n - 1);
+				for (var i = 0; i < indices.length; i++) {
+					indices[i] = -boxsize;
+				}
+				var visibles = 0;
+				/*while (indices.every(function (x) { return x <= boxsize; })) {
+					context.save();
+					var xy = this.xy(indices);
+					var scl = this.displacement(indices, xy);
+					scl = dotsize * Math.exp(-0.25 * V.dot(scl, scl) / (sigma * sigma));
+					if (scl > 0.5/50) { visibles += 1; }
+					//scl = 0.2 * Math.exp(-0.25 * V.dot(scl, scl) / variance);
+					context.translate(xy[0], xy[1]);
+					context.scale(scl, scl);
+					//context.scale(0.1, 0.1);
+					//context.globalAlpha = Math.max(0, scl * 11 - 0.1);
+					context.fillRect(-1, -1, 2, 2);
+					context.restore();
+					//console.log(xy);
+					// Add one and carry
+					indices[0] += 1;
+					for (var i = 0; i < indices.length - 1; i++) {
+						if (indices[i] > boxsize) {
+							indices[i] = -boxsize;
+							indices[i+1] += 1;
+						} else {
+							break;
+						}
+					}
+				}*/
+				for (var j = 0; j < this.verts.length; j++) {
+					context.save();
+					var xy = this.verts[j].xy;
+					var scl = this.verts[j].displacement;
+					scl = dotsize * Math.exp(-0.25 * V.dot(scl, scl) / (sigma * sigma));
+					if (scl > 0.5/50) { visibles += 1; }
+					//scl = 0.2 * Math.exp(-0.25 * V.dot(scl, scl) / variance);
+					context.translate(xy[0], xy[1]);
+					context.scale(scl, scl);
+					//context.scale(0.1, 0.1);
+					//context.globalAlpha = Math.max(0, scl * 11 - 0.1);
+					context.fillRect(-1, -1, 2, 2);
+					context.restore();
+					//console.log(xy);
+				}
+				return visibles;
+			},
+		};
+		window.onload = function () {
+			window.q = new QuasiLattice(5);
+			q.draw(document.getElementById('main').getContext('2d'), 4);
+		};
+
+		/*
+		var randomColor = function () {
+			var c = [Math.random(), Math.random(), Math.random()];
+			var scale = 255 / (1 - Math.min.apply(null, c));
+			for (var i = 0; i < 3; i++) {
+				c[i] = Math.round((1 - c[i]) * scale);
+			}
+			return 'rgb(' + c.join(',') + ')';
+		};
+		var Star = function (min_radius, max_radius) {
+			var theta = Math.random() * Math.PI * 2;
+			var r = Math.exp(Math.random() * Math.log(max_radius/min_radius)) * min_radius;
+			this.color = randomColor();
+			this.x = r * Math.cos(theta);
+			this.y = r * Math.sin(theta);
+		};
+		Star.prototype = {
+			draw: function (context, width, scale_0, scale_1) {
+				var dx = -this.y * width;
+				var dy = this.x * width;
+				var x = this.x + dx/2;
+				var y = this.y + dy/2;
+				context.beginPath();
+				context.fillStyle = this.color;
+				context.moveTo(x * scale_0, y * scale_0);
+				context.lineTo(x * scale_1, y * scale_1);
+				context.lineTo((x - dx) * scale_1, (y - dy) * scale_1);
+				context.lineTo((x - dx) * scale_0, (y - dy) * scale_0);
+				context.closePath();
+				context.fill();
+			},
+			r2: function () {
+				return this.x * this.x + this.y * this.y;
+			},
+		};
+		window.onload = function () {
+			var epsilon = 2;
+			var e2 = epsilon * epsilon;
+			var stars = [];
+			var t_0 = null;
+			var scale_prev = 1;
+			var backwards = false;
+			var draw = function (time_scheduled, single_frame) {
+				if (!t_0) { t_0 = time_scheduled; }
+				var m = document.getElementById('main');
+				var c = m.getContext('2d');
+				var w = m.width;
+				var h = m.height;
+				var rx = w/2;
+				var ry = h/2;
+				var r2 = rx*rx + ry*ry;
+				var r = Math.sqrt(r2);
+				var scale_new = (time_scheduled - t_0) / 5000;
+				if (!backwards) {
+					scale_new = 1 - scale_new;
+				}
+				var s2 = scale_new * scale_new;
+				var starsize = 1/Math.sqrt(stars.length);
+				var resetDraw = function (bgcolor) {
+					bgcolor = bgcolor || 'rgba(0, 0, 0, 0.25)';
+					c.fillStyle = bgcolor;
+					c.fillRect(-rx, -ry, w, h);
+					c.fillStyle = '#fff';
+					c.beginPath();
+					c.moveTo(epsilon, 0);
+					c.arc(0, 0, epsilon, 0, Math.PI);
+					c.arc(0, 0, epsilon, Math.PI, 0);
+					c.fill();
+				};
+				c.save();
+				c.translate(rx, ry);
+				if (scale_new >= 0 && scale_new <= 1) {
+					resetDraw('rgba(0, 0, 0, 0.25)');
+					for (var i = 0; i < stars.length; i++) {
+						var scale_inner = Math.min(scale_prev, scale_new);
+						var scale_outer = Math.max(scale_prev, scale_new);
+						stars[i].draw(c, starsize, Math.max(scale_outer, scale_inner * (1 + starsize)), scale_inner);
+						var d2 = stars[i].r2() * s2;
+						if (backwards) {
+							var d2 = r2 / s2;
+							while (stars[i].r2() > d2) {
+								stars[i].x *= epsilon/r;
+								stars[i].y *= epsilon/r;
+							}
+						} else {
+							var d2 = e2 / s2;
+							while (stars[i].r2() < d2) {
+								stars[i].x *= r/epsilon;
+								stars[i].y *= r/epsilon;
+							}
+						}
+					}
+					scale_prev = scale_new;
+					if (!(single_frame === true)) {
+						window.requestAnimFrame(draw);
+					}
+				} else {
+					if (backwards || (scale_new < -0.1)) {
+						t_0 = null;
+						backwards = !backwards;
+						if (scale_new < 0) {
+							resetDraw('#000');
+						}
+					} else {
+						resetDraw('rgba(0, 0, 0, 0.25)');
+						if (!(single_frame === true)) {
+							window.requestAnimFrame(draw);
+						}
+					}
+				}
+				c.restore();
+			};
+			var act = function (e) {
+				if (e && e.target && e.target.nodeName == 'A') { return true; }
+				if (t_0) { return true; }
+				var m = document.getElementById('main');
+				var c = m.getContext('2d');
+				var w = m.width = window.innerWidth;
+				var h = m.height = window.innerHeight;
+				var rx = w/2;
+				var ry = h/2;
+				var r = Math.sqrt(rx*rx + ry*ry);
+				if (stars.length) {
+					window.requestAnimFrame(draw);
+				} else {
+					for (var i = 0; i < 100; i++) {
+						stars.push(new Star(epsilon, r));
+					}
+					draw(0, true);
+				}
+			};
+			window.onkeydown = act;
+			document.getElementById('main').onclick = act;
+			document.getElementById('helpbutton').onclick = function () {
+				if (window.location.hash == '#help') {
+					window.location = '#';
+					return false;
+				}
+			};
+			window.draw = draw;
+			act();
+		};*/
+	</script>
+</head>
+<body>
+	<canvas id="main">
+		<img src="r2-thumbnail.png" alt="Preview" />
+		This demo requires HTML5 Canvas support.
+	</canvas>
+	<div id="help" class="overlay">
+		<div class="box">
+			<div class="button"><a href="#">&times;</a></div>
+			<p>This page draws patterns reminiscient of quasicrystals
+			by projecting higher-dimensional lattices into the plane.
+			<a href="http://en.wikipedia.org/wiki/Deformation_retract">deformation retraction</a>
+			of the plane to a point&mdash;as the time \(t\) goes from \(0\) to \(1\),
+			each point of the plane
+			moves in a straight line at constant speed to \( (0,0) \).
+			In symbols:</p>
+				\[ (x, y, t) \mapsto ((1-t)x, (1-t)y) \]
+			<p>People only sometimes point out how <em>weird</em> this is.
+			As long as \( t \neq 1 \), the whole plane is still
+			the whole plane&mdash;but when \( t = 1 \) everything
+			is suddenly mashed down to a point.</p>
+			<p>Just for kicks, it also plays backwards.</p>
+			<p>Code written by <a href="http://pteromys.melonisland.net/">Pteromys</a>
+			and released under the <a href="http://unlicense.org/">Unlicense</a>.</p>
+		</div>
+	</div>
+	<div class="button"><a href="#help" id="helpbutton">?</a></div>
+</body>
+</html>
