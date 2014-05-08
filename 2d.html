@@ -125,6 +125,7 @@
 		};
 		var QuasiLattice = function (n) { // n = degree of symmetry
 			this.n = n;
+			// 2D basis elements
 			this.x = V.zero(n);
 			this.y = V.zero(n);
 			this.dx = V.zero(n-1);
@@ -138,11 +139,16 @@
 				this.dx[i] = this.x[i] - this.x[i+1];
 				this.dy[i] = this.y[i] - this.y[i+1];
 			}
-			this.trace = -2 * Math.cos(2 * Math.PI / n);
+			// Vertex list
 			this.verts = [new Vertex(V.zero(n-1), this)];
 			this.border_verts = [this.verts[0]];
 			this.vert_names = {};
 			this.vert_names[this.verts[0].toString()] = true;
+			// Other constants
+			//this.trace = -2 * Math.cos(2 * Math.PI / n);
+			//this.dotsize = 0.2 * Math.pow(2 * Math.PI, 0.25 * (3 - this.n)) * Math.pow(this.n, 0.25);
+			this.variance = Math.pow(this.n, 1/(this.n - 3)) * 0.5 / Math.PI;
+			this.dotsize = 0.2 * Math.pow(2 * Math.PI * this.variance, 0.25 * (3 - this.n)) * Math.pow(this.n, 0.25);
 		};
 		QuasiLattice.prototype = {
 			displacement: function (indices, xy) {
@@ -160,6 +166,7 @@
 				return [V.dot(this.dx, indices), V.dot(this.dy, indices)];
 			},
 			addVerts: function () {
+				// Search through neighbors of a border vertex.
 				var v = this.border_verts.shift();
 				var indices, indices2;
 				for (var i = 0; i < this.n - 1; i++) {
@@ -184,12 +191,12 @@
 				var nv = new Vertex(indices, this);
 				this.verts.push(nv);
 				this.vert_names[nv.toString()] = true;
-				if (V.dot(nv.displacement, nv.displacement) <= 9) {
+				if (V.dot(nv.displacement, nv.displacement) / this.variance <= 16) {
 					this.border_verts.push(nv);
 				}
 				return nv;
 			},
-			draw: function (context, boxsize) {
+			draw: function (context, scale) {
 				// Set up context
 				var g = context.createRadialGradient(0, 0, 0, 0, 0, 1);
 				g.addColorStop(0, '#fff');
@@ -199,52 +206,22 @@
 				var w = context.canvas.width = window.innerWidth;
 				var h = context.canvas.height = window.innerHeight;
 				var r = Math.sqrt(w*w + h*h)/2;
-				var sigma = Math.pow(this.n, -0.25);
-				var dotsize = 0.2 * Math.pow(2 * Math.PI * sigma, 0.25 * (3 - this.n)) * Math.pow(this.n, 0.25);
+				//var sigma = Math.pow(this.n, -0.25);
 				//var variance = 2 * Math.PI * Math.pow(this.n, 3 - this.n); // sigma * sigma;
-				var variance = sigma * sigma;
+				//var variance = sigma * sigma;
 				context = context.canvas.getContext('2d');
 				context.fillStyle = g;
 				context.globalCompositeOperation = 'lighter';
 				context.translate(context.canvas.width/2, context.canvas.height/2);
+				scale = scale || 50;
 				//context.scale(r/3, r/3);
-				context.scale(50, 50);
-				// Set up indices
-				var indices = new Array(this.n - 1);
-				for (var i = 0; i < indices.length; i++) {
-					indices[i] = -boxsize;
-				}
+				context.scale(scale, scale);
 				var visibles = 0;
-				/*while (indices.every(function (x) { return x <= boxsize; })) {
-					context.save();
-					var xy = this.xy(indices);
-					var scl = this.displacement(indices, xy);
-					scl = dotsize * Math.exp(-0.25 * V.dot(scl, scl) / (sigma * sigma));
-					if (scl > 0.5/50) { visibles += 1; }
-					//scl = 0.2 * Math.exp(-0.25 * V.dot(scl, scl) / variance);
-					context.translate(xy[0], xy[1]);
-					context.scale(scl, scl);
-					//context.scale(0.1, 0.1);
-					//context.globalAlpha = Math.max(0, scl * 11 - 0.1);
-					context.fillRect(-1, -1, 2, 2);
-					context.restore();
-					//console.log(xy);
-					// Add one and carry
-					indices[0] += 1;
-					for (var i = 0; i < indices.length - 1; i++) {
-						if (indices[i] > boxsize) {
-							indices[i] = -boxsize;
-							indices[i+1] += 1;
-						} else {
-							break;
-						}
-					}
-				}*/
 				for (var j = 0; j < this.verts.length; j++) {
 					context.save();
 					var xy = this.verts[j].xy;
 					var scl = this.verts[j].displacement;
-					scl = dotsize * Math.exp(-0.25 * V.dot(scl, scl) / (sigma * sigma));
+					scl = this.dotsize * Math.exp(-0.25 * V.dot(scl, scl) / this.variance);
 					if (scl > 0.5/50) { visibles += 1; }
 					//scl = 0.2 * Math.exp(-0.25 * V.dot(scl, scl) / variance);
 					context.translate(xy[0], xy[1]);
@@ -260,7 +237,7 @@
 		};
 		window.onload = function () {
 			window.q = new QuasiLattice(5);
-			q.draw(document.getElementById('main').getContext('2d'), 4);
+			q.draw(document.getElementById('main').getContext('2d'), 50);
 		};
 
 		/*
@@ -409,7 +386,7 @@
 </head>
 <body>
 	<canvas id="main">
-		<img src="r2-thumbnail.png" alt="Preview" />
+		<img src="quasi-thumbnail.png" alt="Preview" />
 		This demo requires HTML5 Canvas support.
 	</canvas>
 	<div id="help" class="overlay">
@@ -417,17 +394,6 @@
 			<div class="button"><a href="#">&times;</a></div>
 			<p>This page draws patterns reminiscient of quasicrystals
 			by projecting higher-dimensional lattices into the plane.
-			<a href="http://en.wikipedia.org/wiki/Deformation_retract">deformation retraction</a>
-			of the plane to a point&mdash;as the time \(t\) goes from \(0\) to \(1\),
-			each point of the plane
-			moves in a straight line at constant speed to \( (0,0) \).
-			In symbols:</p>
-				\[ (x, y, t) \mapsto ((1-t)x, (1-t)y) \]
-			<p>People only sometimes point out how <em>weird</em> this is.
-			As long as \( t \neq 1 \), the whole plane is still
-			the whole plane&mdash;but when \( t = 1 \) everything
-			is suddenly mashed down to a point.</p>
-			<p>Just for kicks, it also plays backwards.</p>
 			<p>Code written by <a href="http://pteromys.melonisland.net/">Pteromys</a>
 			and released under the <a href="http://unlicense.org/">Unlicense</a>.</p>
 		</div>
