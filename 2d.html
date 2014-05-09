@@ -180,7 +180,7 @@
 				indices = v.indices.slice();
 				indices2 = v.indices.slice();
 				for (var j = 0; j < this.n - 1; j++) {
-					indices[j] = 1;
+					indices[j] += 1;
 					indices2[j] -= 1;
 				}
 				this.addVert(indices);
