@@ -86,6 +86,13 @@
 					return callback((new Date()).valueOf() + 16);
 				}, 16);
 			};
+		var fillCircle = function (context, x, y, r) {
+			context.beginPath();
+			context.arc(x, y, r, 0, Math.PI*2, true);
+			context.fill();
+		};
+		var EPSILON = 1e-9;
+		// Vector and Matrix operations
 		var V = {
 			dot: function (x, y) {
 				var ans = 0;
@@ -96,6 +103,13 @@
 			},
 			scale: function (v, a) {
 				return v.map(function (x) { return x * a; });
+			},
+			add: function (x, y) {
+				var ans = new Array(Math.min(x.length, y.length));
+				for (var i = 0; i < ans.length; i++) {
+					ans[i] = x[i] + y[i];
+				}
+				return ans;
 			},
 			zero: function (n) {
 				var ans = new Array(n);
@@ -119,6 +133,7 @@
 			this.indices = indices.slice(); // Make a copy
 			this.xy = quasilattice.xy(indices);
 			this.displacement = quasilattice.displacement(indices, this.xy);
+			this.is_border = true;
 		};
 		Vertex.prototype.toString = function () {
 			return this.indices.join(' ');
@@ -143,12 +158,12 @@
 			this.verts = [new Vertex(V.zero(n-1), this)];
 			this.border_verts = [this.verts[0]];
 			this.vert_names = {};
-			this.vert_names[this.verts[0].toString()] = true;
+			this.vert_names[this.verts[0].toString()] = this.verts[0];
+			this.translators = [this.verts[0]];
+			this.best_translator = Infinity;
 			// Other constants
-			//this.trace = -2 * Math.cos(2 * Math.PI / n);
-			//this.dotsize = 0.2 * Math.pow(2 * Math.PI, 0.25 * (3 - this.n)) * Math.pow(this.n, 0.25);
 			this.variance = Math.pow(this.n, 1/(this.n - 3)) * 0.5 / Math.PI;
-			this.dotsize = 0.2 * Math.pow(2 * Math.PI * this.variance, 0.25 * (3 - this.n)) * Math.pow(this.n, 0.25);
+			this.dotsize = 0.2;
 		};
 		QuasiLattice.prototype = {
 			displacement: function (indices, xy) {
@@ -165,17 +180,24 @@
 			xy: function (indices) {
 				return [V.dot(this.dx, indices), V.dot(this.dy, indices)];
 			},
-			addVerts: function () {
-				// Search through neighbors of a border vertex.
-				var v = this.border_verts.shift();
+			addVerts: function (v) {
+				// Search through neighbors of a border vertex v.
+				// Automatically select v from the queue if not given.
+				if (!v) {
+					if (!this.border_verts.length) { return false; }
+					v = this.border_verts.shift();
+				}
+				var nv;
 				var indices, indices2;
 				for (var i = 0; i < this.n - 1; i++) {
 					indices = v.indices.slice();
 					indices2 = v.indices.slice();
 					indices[i] += 1;
 					indices2[i] -= 1;
-					this.addVert(indices);
-					this.addVert(indices2);
+					nv = this.addVert(indices);
+					if (nv) { nv.prev = v; }
+					nv = this.addVert(indices2);
+					if (nv) { nv.prev = v; }
 				}
 				indices = v.indices.slice();
 				indices2 = v.indices.slice();
@@ -183,61 +205,228 @@
 					indices[j] += 1;
 					indices2[j] -= 1;
 				}
-				this.addVert(indices);
-				this.addVert(indices2);
+				nv = this.addVert(indices);
+				if (nv) { nv.prev = v; }
+				nv = this.addVert(indices2);
+				if (nv) { nv.prev = v; }
+				v.is_border = false;
+				return true;
 			},
 			addVert: function (indices) {
 				if (this.vert_names[indices.join(' ')]) { return false; }
 				var nv = new Vertex(indices, this);
+				var r2 = V.dot(nv.displacement, nv.displacement) / this.variance;
+				if (r2 > 16) { return false; }
 				this.verts.push(nv);
-				this.vert_names[nv.toString()] = true;
-				if (V.dot(nv.displacement, nv.displacement) / this.variance <= 16) {
-					this.border_verts.push(nv);
+				this.border_verts.push(nv);
+				this.vert_names[nv.toString()] = nv;
+				if (r2 < this.best_translator - EPSILON) {
+					this.best_translator = r2;
+					this.translators = [this.verts[0]];
+				}
+				if (r2 < this.best_translator + EPSILON) {
+					this.translators.push(nv);
 				}
 				return nv;
 			},
-			draw: function (context, scale) {
+			addVertsLayer: function () {
+				var n = this.border_verts.length;
+				for (var i = 0; i < n; i++) {
+					this.addVerts();
+				}
+				return this.border_verts.length;
+			},
+			addVertsDouble: function () {
+				var startv = this.verts.length;
+				var startb = this.border_verts.length;
+				var rebordered = false;
+				if (startb == 0) {
+					this.border_verts = this.verts;
+					startb = this.border_verts.length;
+					rebordered = true;
+				}
+				var new_border = [];
+				for (var i = 0; i < startb; i++) {
+					for (var j = 0; j < startv; j++) {
+						var indices = this.border_verts[i].indices.slice();
+						for (var k = 0; k < this.n - 1; k++) {
+							indices[k] += this.verts[j].indices[k];
+						}
+						var nv = this.addVert(indices);
+						if ((nv && this.verts[j].is_border) || rebordered) {
+							new_border.push(nv);
+						}
+					}
+				}
+				for (var i = 0; i < this.border_verts.length; i++) {
+					this.border_verts[i].is_border = false;
+				}
+				for (var i = 0; i < new_border.length; i++) {
+					new_border[i].is_border = true;
+				}
+				this.border_verts = new_border;
+			},
+			getGradient: function (context) {
+				if (this.gradient) { return this.gradient; }
+				this.gradient = context.createRadialGradient(0, 0, 0, 0, 0, 1);
+				this.gradient.addColorStop(0, '#fff');
+				this.gradient.addColorStop(0.5, '#ff0');
+				this.gradient.addColorStop(1, '#000');
+				return this.gradient;
+			},
+			check: function () {
+				var vl = [];
+				var nl = {};
+				for (var i = 0; i < this.verts.length; i++) {
+					var n = V.zero(this.n);
+					for (var j = 0; j < this.n - 1; j++) {
+						n[j] += q.verts[i].indices[j];
+						n[j+1] -= q.verts[i].indices[j];
+					}
+					vl.push(n);
+					nl[n.join(' ')] = true;
+				}
+				var missing = [];
+				for (var i = 0; i < vl.length; i++) {
+					var n = vl[i].slice();
+					n.push(n.shift());
+					if (! nl[n.join(' ')]) {
+						missing.push(n);
+					}
+				}
+				return missing;
+			},
+			draw: function (context, xy_view, offset, scale) {
 				// Set up context
-				var g = context.createRadialGradient(0, 0, 0, 0, 0, 1);
-				g.addColorStop(0, '#fff');
-				g.addColorStop(0.5, '#0f0');
-				g.addColorStop(1, '#000');
 				var m = context.canvas;
 				var w = context.canvas.width = window.innerWidth;
 				var h = context.canvas.height = window.innerHeight;
 				var r = Math.sqrt(w*w + h*h)/2;
-				//var sigma = Math.pow(this.n, -0.25);
-				//var variance = 2 * Math.PI * Math.pow(this.n, 3 - this.n); // sigma * sigma;
-				//var variance = sigma * sigma;
 				context = context.canvas.getContext('2d');
-				context.fillStyle = g;
+				context.fillStyle = this.getGradient(context);
 				context.globalCompositeOperation = 'lighter';
 				context.translate(context.canvas.width/2, context.canvas.height/2);
-				scale = scale || 50;
-				//context.scale(r/3, r/3);
+				scale = (scale || 1) * r/5;
 				context.scale(scale, scale);
 				var visibles = 0;
 				for (var j = 0; j < this.verts.length; j++) {
 					context.save();
-					var xy = this.verts[j].xy;
-					var scl = this.verts[j].displacement;
+					var xy = V.add(xy_view, V.add(this.verts[j].xy, offset.xy));
+					var scl = V.add(this.verts[j].displacement, offset.displacement);
 					scl = this.dotsize * Math.exp(-0.25 * V.dot(scl, scl) / this.variance);
 					if (scl > 0.5/50) { visibles += 1; }
-					//scl = 0.2 * Math.exp(-0.25 * V.dot(scl, scl) / variance);
 					context.translate(xy[0], xy[1]);
 					context.scale(scl, scl);
-					//context.scale(0.1, 0.1);
-					//context.globalAlpha = Math.max(0, scl * 11 - 0.1);
 					context.fillRect(-1, -1, 2, 2);
 					context.restore();
-					//console.log(xy);
 				}
 				return visibles;
 			},
 		};
+		window.velocity = [0, 0];
+		var KEYS = {
+			"ESC": 27,
+			"SPACE": 32,
+			"LEFT": 37,
+			"UP": 38,
+			"RIGHT": 39,
+			"DOWN": 40,
+			"QUESTION": 191,
+		}
+		var keys_down = {
+			"37": false,
+			"38": false,
+			"39": false,
+			"40": false,
+			"mouse": false,
+		};
+		var updateVelocity = function (dt) {
+			dt = dt || 16;
+			var dv = 0.00003 * dt;
+			var vmax = 0.0025;
+			var decay = 0.000025 * dt;
+			var clampAndDecay = function (t) {
+				if (t < -decay) { t += decay; }
+				else if (t > decay) { t -= decay; }
+				else { t = 0; }
+				return Math.max(-vmax, Math.min(t, vmax));
+			};
+			// Only apply arrow key motion if no dialogs are active
+			//if (!isModalDialogActive()) {
+				if (keys_down[KEYS.UP]) { window.velocity[1] += dv; }
+				if (keys_down[KEYS.DOWN]) { window.velocity[1] -= dv; }
+				if (keys_down[KEYS.LEFT]) { window.velocity[0] -= dv; }
+				if (keys_down[KEYS.RIGHT]) { window.velocity[0] += dv; }
+			//}
+			window.velocity = window.velocity.map(clampAndDecay);
+		};
+
 		window.onload = function () {
-			window.q = new QuasiLattice(5);
-			q.draw(document.getElementById('main').getContext('2d'), 50);
+			window.q = new QuasiLattice(11);
+			var m = document.getElementById('main');
+			//q.draw(document.getElementById('main').getContext('2d'), 1);
+			var t_0 = null;
+			var offset = new Vertex(V.zero(q.n - 1), q);
+			var xy = [0, 0];
+			var cmpTranslators = function (a, b) {
+				axy = V.add(xy, V.add(a.xy, offset.xy));
+				ad = V.add(offset.displacement, a.displacement);
+				bxy = V.add(xy, V.add(b.xy, offset.xy));
+				bd = V.add(offset.displacement, b.displacement);
+				axy = V.dot(axy, axy);
+				ad = V.dot(ad, ad);
+				bxy = V.dot(bxy, bxy);
+				bd = V.dot(bd, bd);
+				return (ad - bd) + (axy - bxy);
+			};
+			var draw = function (time_scheduled, single_frame) {
+				if (!t_0) { t_0 = time_scheduled; }
+				// Arrow key motion
+				var dt = 16;
+				if (t_0 && time_scheduled) {
+					dt = time_scheduled - t_0;
+				}
+				dt = Math.min(dt, 300);
+				dt = dt || 16;
+				t_0 = null;
+				updateVelocity(dt);
+				if (window.velocity[0] || window.velocity[1] ||
+						keys_down[KEYS.UP] || keys_down[KEYS.DOWN] ||
+						keys_down[KEYS.LEFT] || keys_down[KEYS.RIGHT]) {
+					xy[0] -= window.velocity[0] * dt;
+					xy[1] += window.velocity[1] * dt;
+				}
+				// Draw
+				q.draw(m.getContext('2d'), xy, offset, 1);
+				// Add verts
+				if (q.verts.length < 1000) {
+					q.addVerts() || q.addVertsDouble();
+				}
+				// Translate
+				q.translators.sort(cmpTranslators);
+				offset = new Vertex(V.add(offset.indices, q.translators[0].indices), q);
+				// Request next frame
+				if (!single_frame) {
+					window.af = window.requestAnimFrame(draw);
+				}
+			};
+			window.onkeydown = function (e) {
+				if (typeof(keys_down[e.which]) != 'undefined') {
+					keys_down[e.which] = true;
+				}
+			};
+			window.onkeyup = function (e) {
+				if (typeof(keys_down[e.which]) != 'undefined') {
+					keys_down[e.which] = false;
+				}
+			};
+			window.onblur = window.onmouseout = function (e) {
+				for (k in keys_down) {
+					keys_down[k] = false;
+				}
+			}
+			window.xy = xy;
+			draw();
 		};
 
 		/*
