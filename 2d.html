@@ -200,6 +200,7 @@
 			this.displacement = quasilattice.displacement(indices, this.xy);
 			this.xy2 = V.dot(this.xy, this.xy);
 			this.d2 = V.dot(this.displacement, this.displacement);
+			this.r2 = this.d2 / quasilattice.variance;
 			this.is_border = true;
 		};
 		Vertex.prototype.toString = function () {
@@ -227,6 +228,7 @@
 			this.vert_names = {};
 			this.vert_names[this.verts[0].toString()] = this.verts[0];
 			this.translators = [this.verts[0]];
+			this.newest_translators = [this.verts[0]];
 			this.best_translator = Infinity;
 			// Other constants
 			this.variance = Math.pow(this.n, 1/(this.n - 3)) * 0.5 / Math.PI;
@@ -299,10 +301,12 @@
 				this.vert_names[nv.toString()] = nv;
 				if (r2 < this.best_translator - EPSILON) {
 					this.best_translator = r2;
-					this.translators = [this.verts[0]];
+					this.translators = this.newest_translators;
+					this.newest_translators = [this.verts[0]];
 				}
 				if (r2 < this.best_translator + EPSILON) {
 					this.translators.push(nv);
+					this.newest_translators.push(nv);
 				}
 				return nv;
 			},
@@ -456,7 +460,7 @@
 				ad = V.dot(ad, ad);
 				bxy = V.dot(bxy, bxy);
 				bd = V.dot(bd, bd);
-				return (ad - bd) + (axy - bxy);
+				return (ad - bd) * 5 + (axy - bxy);
 			};
 			var draw = function (time_scheduled, single_frame) {
 				next_frame = null;
