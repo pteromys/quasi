@@ -73,7 +73,9 @@
 			margin-top: 0em;
 		}
 	</style>
+	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
 	<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+	<script type="text/javascript" src="motion.js"></script>
 	<script type="text/javascript">
 		window.requestAnimFrame =
 			window.requestAnimationFrame ||
@@ -406,46 +408,11 @@
 				return visibles;
 			},
 		};
-		window.velocity = [0, 0];
-		var KEYS = {
-			"ESC": 27,
-			"SPACE": 32,
-			"LEFT": 37,
-			"UP": 38,
-			"RIGHT": 39,
-			"DOWN": 40,
-			"QUESTION": 191,
-		}
-		var keys_down = {
-			"37": false,
-			"38": false,
-			"39": false,
-			"40": false,
-			"mouse": false,
-		};
-		var updateVelocity = function (dt) {
-			dt = dt || 16;
-			var dv = 0.00003 * dt;
-			var vmax = 0.0025;
-			var decay = 0.000025 * dt;
-			var clampAndDecay = function (t) {
-				if (t < -decay) { t += decay; }
-				else if (t > decay) { t -= decay; }
-				else { t = 0; }
-				return Math.max(-vmax, Math.min(t, vmax));
-			};
-			// Only apply arrow key motion if no dialogs are active
-			//if (!isModalDialogActive()) {
-				if (keys_down[KEYS.UP]) { window.velocity[1] += dv; }
-				if (keys_down[KEYS.DOWN]) { window.velocity[1] -= dv; }
-				if (keys_down[KEYS.LEFT]) { window.velocity[0] -= dv; }
-				if (keys_down[KEYS.RIGHT]) { window.velocity[0] += dv; }
-			//}
-			window.velocity = window.velocity.map(clampAndDecay);
-		};
-
-		window.onload = function () {
+		$(document).ready(function () {
 			window.q = new QuasiLattice(11);
+			window.movable = new Movable();
+			movable.bindHandlers(window);
+			movable.v_walk = 0.003;
 			var m = document.getElementById('main');
 			//q.draw(document.getElementById('main').getContext('2d'), 1);
 			var t_0 = null;
@@ -474,12 +441,10 @@
 				dt = Math.min(dt, 300);
 				dt = dt || 16;
 				t_0 = null;
-				updateVelocity(dt);
-				if (window.velocity[0] || window.velocity[1] ||
-						keys_down[KEYS.UP] || keys_down[KEYS.DOWN] ||
-						keys_down[KEYS.LEFT] || keys_down[KEYS.RIGHT]) {
-					xy[0] -= window.velocity[0] * dt;
-					xy[1] += window.velocity[1] * dt;
+				movable.updateVelocity(dt);
+				if (movable.isMoving()) {
+					xy[0] -= movable.velocity[0] * dt;
+					xy[1] += movable.velocity[1] * dt;
 					want_another_frame = true;
 				}
 				// Draw
@@ -497,33 +462,15 @@
 					next_frame = window.requestAnimFrame(draw);
 				}
 			};
-			window.onkeydown = function (e) {
-				if (typeof(keys_down[e.which]) != 'undefined') {
-					keys_down[e.which] = true;
-				}
+			$(window).on('keydown', function (e) {
 				if (!next_frame) {
 					next_frame = window.requestAnimFrame(draw);
 				}
-			};
-			window.onresize = function (e) {
-				if (!next_frame) {
-					next_frame = window.requestAnimFrame(draw);
-				}
-			};
-			window.onkeyup = function (e) {
-				if (typeof(keys_down[e.which]) != 'undefined') {
-					keys_down[e.which] = false;
-				}
-			};
-			window.onblur = window.onmouseout = function (e) {
-				for (k in keys_down) {
-					keys_down[k] = false;
-				}
-			}
+			});
 			window.xy = xy;
 			window.draw = draw;
 			draw();
-		};
+		});
 
 		/*
 		var randomColor = function () {
