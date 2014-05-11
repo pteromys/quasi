@@ -386,12 +386,12 @@
 				var m = context.canvas;
 				var w = context.canvas.width = window.innerWidth;
 				var h = context.canvas.height = window.innerHeight;
-				var r = Math.sqrt(w*w + h*h)/2;
+				this.r = Math.sqrt(w*w + h*h)/2;
 				context = context.canvas.getContext('2d');
 				context.fillStyle = this.getGradient(context);
 				context.globalCompositeOperation = 'lighter';
 				context.translate(context.canvas.width/2, context.canvas.height/2);
-				scale = (scale || 1) * r/5;
+				scale = (scale || 1) * this.r/5;
 				context.scale(scale, scale);
 				var visibles = 0;
 				for (var j = 0; j < this.verts.length; j++) {
@@ -409,19 +409,22 @@
 			},
 		};
 		$(document).ready(function () {
+			var m = document.getElementById('main');
 			window.q = new QuasiLattice(11);
 			window.movable = new Movable();
 			movable.bindHandlers(window);
 			movable.v_walk = 0.003;
-			var m = document.getElementById('main');
+			movable.moveFromTo = function (a, b) {
+				this.position[0] += (b[0] - a[0]) * 5 / q.r;
+				this.position[1] += (b[1] - a[1]) * 5 / q.r;
+			};
 			//q.draw(document.getElementById('main').getContext('2d'), 1);
 			var t_0 = null;
 			var offset = new Vertex(V.zero(q.n - 1), q);
-			var xy = [0, 0];
 			var cmpTranslators = function (a, b) {
-				axy = V.add(xy, V.add(a.xy, offset.xy));
+				axy = V.add(movable.position, V.add(a.xy, offset.xy));
 				ad = V.add(offset.displacement, a.displacement);
-				bxy = V.add(xy, V.add(b.xy, offset.xy));
+				bxy = V.add(movable.position, V.add(b.xy, offset.xy));
 				bd = V.add(offset.displacement, b.displacement);
 				axy = V.dot(axy, axy);
 				ad = V.dot(ad, ad);
@@ -441,14 +444,12 @@
 				dt = Math.min(dt, 300);
 				dt = dt || 16;
 				t_0 = null;
-				movable.updateVelocity(dt);
+				movable.update(dt);
 				if (movable.isMoving()) {
-					xy[0] -= movable.velocity[0] * dt;
-					xy[1] += movable.velocity[1] * dt;
 					want_another_frame = true;
 				}
 				// Draw
-				q.draw(m.getContext('2d'), xy, offset, 1);
+				q.draw(m.getContext('2d'), movable.position, offset, 1);
 				// Add verts
 				if (q.verts.length < 5000) {
 					q.addVerts() || q.addVertsDouble();
@@ -458,16 +459,15 @@
 				q.translators.sort(cmpTranslators);
 				offset = new Vertex(V.add(offset.indices, q.translators[0].indices), q);
 				// Request next frame
-				if (!single_frame && want_another_frame) {
+				if (!single_frame && want_another_frame && !next_frame) {
 					next_frame = window.requestAnimFrame(draw);
 				}
 			};
-			$(window).on('keydown', function (e) {
+			movable.motionCallback = function () {
 				if (!next_frame) {
 					next_frame = window.requestAnimFrame(draw);
 				}
-			});
-			window.xy = xy;
+			};
 			window.draw = draw;
 			draw();
 		});
