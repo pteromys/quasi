@@ -119,6 +119,14 @@
 				for (var i = 0; i < n; i++) { ans[i] = 0; }
 				return ans;
 			},
+			isZero: function (v) {
+				for (var i = 0; i < v.length; i++) {
+					if (v[i] != 0) {
+						return false;
+					}
+				}
+				return true;
+			},
 		};
 		var M = {
 			mul: function (m, v) {
@@ -205,11 +213,20 @@
 			this.r2 = this.d2 / quasilattice.variance;
 			this.is_border = true;
 		};
-		Vertex.prototype.toString = function () {
-			return this.indices.join(' ');
+		Vertex.prototype = {
+			toString: function () {
+				return this.indices.join(' ');
+			},
+			weight: function () {
+				//return 0.2 * this.xy2 + this.d2;
+				return 0.4 * Math.max(this.xy2 - 25, 0) + this.d2;
+			},
 		};
 		var QuasiLattice = function (n) { // n = degree of symmetry
 			this.n = n;
+			// Some constants
+			this.variance = Math.pow(this.n, 1/(this.n - 3)) * 0.5 / Math.PI;
+			this.dotsize = 0.2;
 			// 2D basis elements
 			this.x = V.zero(n);
 			this.y = V.zero(n);
@@ -232,9 +249,6 @@
 			this.translators = [this.verts[0]];
 			this.newest_translators = [this.verts[0]];
 			this.best_translator = Infinity;
-			// Other constants
-			this.variance = Math.pow(this.n, 1/(this.n - 3)) * 0.5 / Math.PI;
-			this.dotsize = 0.2;
 		};
 		QuasiLattice.prototype = {
 			displacement: function (indices, xy) {
@@ -255,9 +269,7 @@
 				// Return true if a is a nicer vert to search from than b.
 				if (typeof(b) == 'undefined') { return true; }
 				if (typeof(a) == 'undefined') { return false; }
-				a = 0.1 * Math.max(a.xy2 - 25, 0) + a.d2;
-				b = 0.1 * Math.max(b.xy2 - 25, 0) + b.d2;
-				return (a < b);
+				return (a.weight() < b.weight());
 			},
 			addVerts: function (v) {
 				// Search through neighbors of a border vertex v.
@@ -267,6 +279,7 @@
 					//v = this.border_verts.shift();
 					v = this.border_verts.pop();
 					if (!v) { return false; }
+					if (v.weight() > 5) { return false; }
 				}
 				var nv;
 				var indices, indices2;
@@ -418,7 +431,7 @@
 				this.position[0] += (b[0] - a[0]) * 5 / q.r;
 				this.position[1] += (b[1] - a[1]) * 5 / q.r;
 			};
-			//q.draw(document.getElementById('main').getContext('2d'), 1);
+			var wants_more_verts = true;
 			var t_0 = null;
 			var offset = new Vertex(V.zero(q.n - 1), q);
 			var cmpTranslators = function (a, b) {
@@ -426,11 +439,11 @@
 				ad = V.add(offset.displacement, a.displacement);
 				bxy = V.add(movable.position, V.add(b.xy, offset.xy));
 				bd = V.add(offset.displacement, b.displacement);
-				axy = V.dot(axy, axy);
+				axy = Math.max(0, V.dot(axy, axy) - 6.25);
 				ad = V.dot(ad, ad);
-				bxy = V.dot(bxy, bxy);
+				bxy = Math.max(0, V.dot(bxy, bxy) - 6.25);
 				bd = V.dot(bd, bd);
-				return (ad - bd) * 5 + (axy - bxy);
+				return (ad - bd) * 4 + (axy - bxy);
 			};
 			var draw = function (time_scheduled, single_frame) {
 				next_frame = null;
@@ -451,13 +464,14 @@
 				// Draw
 				q.draw(m.getContext('2d'), movable.position, offset, 1);
 				// Add verts
-				if (q.verts.length < 5000) {
-					q.addVerts() || q.addVertsDouble();
+				if (wants_more_verts && q.verts.length < 10000) {
+					wants_more_verts = q.addVerts();
 					want_another_frame = true;
 				}
 				// Translate
 				q.translators.sort(cmpTranslators);
 				offset = new Vertex(V.add(offset.indices, q.translators[0].indices), q);
+				if (!V.isZero(q.translators[0].indices)) { want_another_frame = true; }
 				// Request next frame
 				if (!single_frame && want_another_frame && !next_frame) {
 					next_frame = window.requestAnimFrame(draw);
