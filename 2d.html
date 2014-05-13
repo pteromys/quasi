@@ -275,8 +275,6 @@
 				// Search through neighbors of a border vertex v.
 				// Automatically select v from the queue if not given.
 				if (!v) {
-					//if (!this.border_verts.length) { return false; }
-					//v = this.border_verts.shift();
 					v = this.border_verts.pop();
 					if (!v) { return false; }
 					if (v.weight() > 5) { return false; }
@@ -324,45 +322,6 @@
 					this.newest_translators.push(nv);
 				}
 				return nv;
-			},
-			addVertsLayer: function () {
-				return false;
-				var n = this.border_verts.length;
-				for (var i = 0; i < n; i++) {
-					this.addVerts();
-				}
-				return this.border_verts.length;
-			},
-			addVertsDouble: function () {
-				return false;
-				var startv = this.verts.length;
-				var startb = this.border_verts.length;
-				var rebordered = false;
-				if (startb == 0) {
-					this.border_verts = this.verts;
-					startb = this.border_verts.length;
-					rebordered = true;
-				}
-				var new_border = [];
-				for (var i = 0; i < startb; i++) {
-					for (var j = 0; j < startv; j++) {
-						var indices = this.border_verts[i].indices.slice();
-						for (var k = 0; k < this.n - 1; k++) {
-							indices[k] += this.verts[j].indices[k];
-						}
-						var nv = this.addVert(indices);
-						if ((nv && this.verts[j].is_border) || rebordered) {
-							new_border.push(nv);
-						}
-					}
-				}
-				for (var i = 0; i < this.border_verts.length; i++) {
-					this.border_verts[i].is_border = false;
-				}
-				for (var i = 0; i < new_border.length; i++) {
-					new_border[i].is_border = true;
-				}
-				this.border_verts = new_border;
 			},
 			getGradient: function (context) {
 				if (this.gradient) { return this.gradient; }
