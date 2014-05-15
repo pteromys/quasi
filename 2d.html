@@ -156,11 +156,21 @@
 			},
 			weight: function () {
 				//return 0.2 * this.xy2 + this.d2;
-				return 0.4 * Math.max(this.xy2 - 25, 0) + this.d2;
+				// Empirically, it doesn't seem necessary to go more than 3
+				// standard deviations out in order to fill local space
+				// with visibles. Visible threshold, set arbitrarily at dot size/50,
+				// is at sqrt(-4 ln 0.02), approximately 3.956.
+				// To go down to 1/100th of dot size is about 4.292.
+				return 2 * this.xy2 / this.lattice.r2 + this.r2;
 			},
 		};
-		var QuasiLattice = function (n) { // n = degree of symmetry
+		var QuasiLattice = function (n, target_radius) { // n = degree of symmetry
 			this.n = n;
+			this.radius = target_radius || 5;
+			this.r2 = this.radius * this.radius;
+			this.achieved_radius = false;
+			this.exhausted_verts = false;
+			this.weight_threshold = Math.pow(Math.sqrt(-4 * Math.log(this.radius/100)) - 1, 2);
 			// Some constants
 			this.variance = Math.pow(this.n, 1/(this.n - 3)) * 0.5 / Math.PI;
 			this.dotsize = 0.2;
@@ -226,13 +236,20 @@
 				// Automatically select v from the queue if not given.
 				if (!v) {
 					v = this.border_verts.pop();
-					if (!v) { return false; }
-					if (v.weight() > 5) { return false; }
+					if (!v || (this.achieved_radius && v.weight() > this.weight_threshold)) {
+						this.exhausted_verts = true;
+						return false;
+					}
 				}
 				var nv;
 				for (var i = 0; i < this.directions.length; i++) {
 					nv = this.addVert(V.add(v.indices, this.directions[i].indices));
-					if (nv) { nv.prev = v; }
+					if (nv) {
+						nv.prev = v;
+						if (nv.xy2 > this.r2) {
+							this.achieved_radius = true;
+						};
+					}
 				}
 				v.is_border = false;
 				return true;
@@ -288,12 +305,12 @@
 				var m = context.canvas;
 				var w = context.canvas.width = window.innerWidth;
 				var h = context.canvas.height = window.innerHeight;
-				this.r = Math.sqrt(w*w + h*h)/2;
+				var r = Math.sqrt(w*w + h*h)/2;
 				context = context.canvas.getContext('2d');
 				context.fillStyle = this.getGradient(context);
 				context.globalCompositeOperation = 'lighter';
 				context.translate(context.canvas.width/2, context.canvas.height/2);
-				scale = (scale || 1) * this.r/5;
+				scale = (scale || 1) * r / this.radius;
 				context.scale(scale, scale);
 				var visibles = 0;
 				for (var j = 0; j < this.verts.length; j++) {
@@ -320,7 +337,6 @@
 				this.position[0] += (b[0] - a[0]) * 5 / q.r;
 				this.position[1] += (b[1] - a[1]) * 5 / q.r;
 			};
-			var wants_more_verts = true;
 			var t_0 = null;
 			var offset = new Vertex(V.zero(q.n - 1), q);
 			var cmpTranslators = function (a, b) {
@@ -353,8 +369,9 @@
 				// Draw
 				q.draw(m.getContext('2d'), movable.position, offset, 1);
 				// Add verts
-				if (wants_more_verts && q.verts.length < 10000) {
-					wants_more_verts = q.addVerts();
+				if (!q.exhausted_verts) {
+					q.addVerts();
+					$('#worst').text(q.verts.length + ' ' + q.border_verts.items[0].weight());
 					want_another_frame = true;
 				}
 				// Translate
@@ -393,6 +410,7 @@
 		<img src="quasi-thumbnail.png" alt="Preview" />
 		This demo requires HTML5 Canvas support.
 	</canvas>
+	<div id="worst" style="position: absolute; z-index: 10; width: 10em; height: 1em; left:0px; top:0px; color: #fff;"></div>
 	<div id="help" class="overlay">
 		<div class="box">
 			<div class="button"><a href="#">&times;</a></div>
