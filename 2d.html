@@ -246,9 +246,6 @@
 			this.border_verts = new Heap(this.verts, this.vertCmp);
 			this.vert_names = {};
 			this.vert_names[this.verts[0].toString()] = this.verts[0];
-			this.translators = [this.verts[0]];
-			this.newest_translators = [this.verts[0]];
-			this.best_translator = Infinity;
 			// Set up translation directions
 			this.directions = new Array(2*n);
 			this.directions[2*n - 2] = V.zero(n-1);
@@ -311,15 +308,6 @@
 				this.verts.push(nv);
 				this.border_verts.push(nv);
 				this.vert_names[nv.toString()] = nv;
-				if (r2 < this.best_translator - EPSILON) {
-					this.best_translator = r2;
-					this.translators = this.newest_translators;
-					this.newest_translators = [this.verts[0]];
-				}
-				if (r2 < this.best_translator + EPSILON) {
-					this.translators.push(nv);
-					this.newest_translators.push(nv);
-				}
 				if (nv.weight() < this.directions[0].weight() - EPSILON) {
 					this.direction_threshold = this.directions[0].weight();
 				}
@@ -433,7 +421,6 @@
 					want_another_frame = true;
 				}
 				// Translate
-				//q.translators.sort(cmpTranslators);
 				var translator = q.verts[0];
 				for (var i = 0; i < q.directions.length; i++) {
 					if (cmpTranslators(translator, q.directions[i]) > 0) {
