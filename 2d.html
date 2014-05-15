@@ -177,33 +177,25 @@
 			// 2D basis elements
 			this.x = V.zero(n);
 			this.y = V.zero(n);
-			this.dx = V.zero(n-1);
-			this.dy = V.zero(n-1);
 			var norm = Math.sqrt(2/n);
 			for (var i = 0; i < n; i++) {
 				this.x[i] = Math.cos(2 * Math.PI * i / n) * norm;
 				this.y[i] = Math.sin(2 * Math.PI * i / n) * norm;
 			}
-			for (var i = 0; i < n - 1; i++) {
-				this.dx[i] = this.x[i] - this.x[i+1];
-				this.dy[i] = this.y[i] - this.y[i+1];
-			}
 			// Vertex list
-			this.verts = [new Vertex(V.zero(n-1), this)];
+			this.verts = [new Vertex(V.zero(n), this)];
 			this.border_verts = new Heap(this.verts, this.vertCmp);
 			this.vert_names = {};
 			this.vert_names[this.verts[0].toString()] = this.verts[0];
 			// Set up translation directions
 			this.directions = new Array(2*n);
-			this.directions[2*n - 2] = V.zero(n-1);
-			this.directions[2*n - 1] = V.zero(n-1);
-			for (var i = 0; i < n-1; i++) {
-				this.directions[2*i] = V.zero(n-1);
-				this.directions[2*i][i] = 1;
-				this.directions[2*i + 1] = V.zero(n-1);
-				this.directions[2*i + 1][i] = -1;
-				this.directions[2*n - 2][i] = 1;
-				this.directions[2*n - 1][i] = -1;
+			for (var i = 0; i < n; i++) {
+				this.directions[i] = V.zero(n);
+				this.directions[i][i] = 1;
+				this.directions[i][(i+1)%n] = -1;
+				this.directions[i+n] = V.zero(n);
+				this.directions[i+n][i] = -1;
+				this.directions[i+n][(i+1)%n] = 1;
 			}
 			for (var i = 0; i < this.directions.length; i++) {
 				this.directions[i] = new Vertex(this.directions[i], this);
@@ -212,18 +204,14 @@
 		};
 		QuasiLattice.prototype = {
 			displacement: function (indices, xy) {
-				var v = V.zero(this.n);
-				for (var i = 0; i < this.n - 1; i++) {
-					v[i] += indices[i];
-					v[i+1] -= indices[i];
-				}
+				var v = indices.slice();
 				for (var i = 0; i < v.length; i++) {
 					v[i] -= this.x[i] * xy[0] + this.y[i] * xy[1];
 				}
 				return v;
 			},
 			xy: function (indices) {
-				return [V.dot(this.dx, indices), V.dot(this.dy, indices)];
+				return [V.dot(this.x, indices), V.dot(this.y, indices)];
 			},
 			vertCmp: function (a, b) {
 				// Return true if a is a nicer vert to search from than b.
@@ -278,28 +266,6 @@
 				this.gradient.addColorStop(1, '#000');
 				return this.gradient;
 			},
-			check: function () {
-				var vl = [];
-				var nl = {};
-				for (var i = 0; i < this.verts.length; i++) {
-					var n = V.zero(this.n);
-					for (var j = 0; j < this.n - 1; j++) {
-						n[j] += q.verts[i].indices[j];
-						n[j+1] -= q.verts[i].indices[j];
-					}
-					vl.push(n);
-					nl[n.join(' ')] = true;
-				}
-				var missing = [];
-				for (var i = 0; i < vl.length; i++) {
-					var n = vl[i].slice();
-					n.push(n.shift());
-					if (! nl[n.join(' ')]) {
-						missing.push(n);
-					}
-				}
-				return missing;
-			},
 			draw: function (context, xy_view, offset, scale) {
 				// Set up context
 				var m = context.canvas;
@@ -338,7 +304,7 @@
 				this.position[1] += (b[1] - a[1]) * 5 / q.r;
 			};
 			var t_0 = null;
-			var offset = new Vertex(V.zero(q.n - 1), q);
+			var offset = new Vertex(V.zero(q.n), q);
 			var cmpTranslators = function (a, b) {
 				axy = V.add(movable.position, V.add(a.xy, offset.xy));
 				ad = V.add(offset.displacement, a.displacement);
