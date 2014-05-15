@@ -354,11 +354,12 @@
 					next_frame = window.requestAnimFrame(draw);
 				}
 			};
-			movable.motionCallback = function () {
+			var requestFrame = function () {
 				if (!next_frame) {
 					next_frame = window.requestAnimFrame(draw);
 				}
 			};
+			movable.motionCallback = requestFrame;
 			$('#helpbutton').on('click', function (e) {
 				e.stopPropagation();
 				if (window.location.hash == '#help') {
@@ -366,6 +367,7 @@
 					window.location = '#';
 				}
 			});
+			$(window).on('resize', requestFrame);
 			window.draw = draw;
 			draw();
 		});
