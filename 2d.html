@@ -249,6 +249,22 @@
 			this.translators = [this.verts[0]];
 			this.newest_translators = [this.verts[0]];
 			this.best_translator = Infinity;
+			// Set up translation directions
+			this.directions = new Array(2*n);
+			this.directions[2*n - 2] = V.zero(n-1);
+			this.directions[2*n - 1] = V.zero(n-1);
+			for (var i = 0; i < n-1; i++) {
+				this.directions[2*i] = V.zero(n-1);
+				this.directions[2*i][i] = 1;
+				this.directions[2*i + 1] = V.zero(n-1);
+				this.directions[2*i + 1][i] = -1;
+				this.directions[2*n - 2][i] = 1;
+				this.directions[2*n - 1][i] = -1;
+			}
+			for (var i = 0; i < this.directions.length; i++) {
+				this.directions[i] = new Vertex(this.directions[i], this);
+			}
+			this.direction_threshold = Infinity;
 		};
 		QuasiLattice.prototype = {
 			displacement: function (indices, xy) {
@@ -280,27 +296,10 @@
 					if (v.weight() > 5) { return false; }
 				}
 				var nv;
-				var indices, indices2;
-				for (var i = 0; i < this.n - 1; i++) {
-					indices = v.indices.slice();
-					indices2 = v.indices.slice();
-					indices[i] += 1;
-					indices2[i] -= 1;
-					nv = this.addVert(indices);
-					if (nv) { nv.prev = v; }
-					nv = this.addVert(indices2);
+				for (var i = 0; i < this.directions.length; i++) {
+					nv = this.addVert(V.add(v.indices, this.directions[i].indices));
 					if (nv) { nv.prev = v; }
 				}
-				indices = v.indices.slice();
-				indices2 = v.indices.slice();
-				for (var j = 0; j < this.n - 1; j++) {
-					indices[j] += 1;
-					indices2[j] -= 1;
-				}
-				nv = this.addVert(indices);
-				if (nv) { nv.prev = v; }
-				nv = this.addVert(indices2);
-				if (nv) { nv.prev = v; }
 				v.is_border = false;
 				return true;
 			},
@@ -320,6 +319,12 @@
 				if (r2 < this.best_translator + EPSILON) {
 					this.translators.push(nv);
 					this.newest_translators.push(nv);
+				}
+				if (nv.weight() < this.directions[0].weight() - EPSILON) {
+					this.direction_threshold = this.directions[0].weight();
+				}
+				if (nv.weight() < this.direction_threshold + EPSILON) {
+					this.directions.unshift(nv);
 				}
 				return nv;
 			},
@@ -402,7 +407,7 @@
 				ad = V.dot(ad, ad);
 				bxy = Math.max(0, V.dot(bxy, bxy) - 6.25);
 				bd = V.dot(bd, bd);
-				return (ad - bd) * 4 + (axy - bxy);
+				return (ad - bd) + (axy - bxy);
 			};
 			var draw = function (time_scheduled, single_frame) {
 				next_frame = null;
@@ -428,9 +433,15 @@
 					want_another_frame = true;
 				}
 				// Translate
-				q.translators.sort(cmpTranslators);
-				offset = new Vertex(V.add(offset.indices, q.translators[0].indices), q);
-				if (!V.isZero(q.translators[0].indices)) { want_another_frame = true; }
+				//q.translators.sort(cmpTranslators);
+				var translator = q.verts[0];
+				for (var i = 0; i < q.directions.length; i++) {
+					if (cmpTranslators(translator, q.directions[i]) > 0) {
+						translator = q.directions[i];
+					}
+				}
+				offset = new Vertex(V.add(offset.indices, translator.indices), q);
+				if (!V.isZero(translator.indices)) { want_another_frame = true; }
 				// Request next frame
 				if (!single_frame && want_another_frame && !next_frame) {
 					next_frame = window.requestAnimFrame(draw);
