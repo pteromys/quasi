@@ -161,8 +161,8 @@
 			this.exhausted_verts = false;
 			this.weight_threshold = Math.pow(Math.sqrt(-4 * Math.log(this.radius/100)) - 1, 2);
 			// Some constants
-			this.variance = Math.pow(this.n, 1/(this.n - 3)) * 0.5 / Math.PI;
-			this.dotsize = 0.2;
+			this.dotsize = 0.04 * this.radius;
+			this.variance = Math.pow(this.n / (Math.pow(5 * this.dotsize, 4)), 1/(this.n - 3)) * 0.5 / Math.PI;
 			// 2D basis elements
 			this.x = V.zero(n);
 			this.y = V.zero(n);
