@@ -34,8 +34,8 @@ Movable.prototype = {
 	DOUBLETAP_THRESHOLD: 300,
 	TAP_MOVE_THRESHOLD: 16,
 	default_dt: 16,
-	v_walk: 0.0025,
-	v_run: 0.01,
+	v_walk: 0.5,
+	v_run: 2,
 
 	updateVelocity: function (dt) {
 		dt = dt || this.default_dt;
