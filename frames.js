@@ -19,8 +19,8 @@ var FrameManager = function (callback) {
 	//     this.prev_time = scheduled time for the frame that
 	//         triggered this one via its return value
 	//     this.dt = ticks since prev_time || this.DEFAULT_DT
-	this.next_id = null;
-	this.prev_time = null;
+	this.next_id = NaN;
+	this.prev_time = NaN;
 	this.dt = this.DEFAULT_DT;
 	this.drawCallback = callback || function () {};
 	this.drawWrapper = this.drawWrapper.bind(this);
@@ -36,7 +36,7 @@ FrameManager.prototype = {
 		return this.next_id;
 	},
 	drawWrapper: function (time_scheduled) {
-		this.next_id = null;
+		this.next_id = NaN;
 		this.dt = (time_scheduled - this.prev_time) || this.DEFAULT_DT;
 		// Call the user-supplied callback. Might take a while.
 		var draw_again = this.drawCallback.apply(this, arguments);
@@ -46,7 +46,7 @@ FrameManager.prototype = {
 			this.prev_time = time_scheduled;
 			this.requestFrame();
 		} else {
-			this.prev_time = null;
+			this.prev_time = NaN;
 		}
 	},
 };
