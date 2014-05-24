@@ -77,19 +77,8 @@
 	<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
 	<script type="text/javascript" src="heap.js"></script>
 	<script type="text/javascript" src="motion.js"></script>
+	<script type="text/javascript" src="frames.js"></script>
 	<script type="text/javascript">
-		window.requestAnimFrame =
-			window.requestAnimationFrame ||
-			window.webkitRequestAnimationFrame ||
-			window.mozRequestAnimationFrame ||
-			window.oRequestAnimationFrame ||
-			window.msRequestAnimationFrame ||
-			function (callback, element) {
-				window.setTimeout(function () {
-					return callback((new Date()).valueOf() + 16);
-				}, 16);
-			};
-		var next_frame = null;
 		var fillCircle = function (context, x, y, r) {
 			context.beginPath();
 			context.arc(x, y, r, 0, Math.PI*2, true);
@@ -318,29 +307,18 @@
 				bd = V.dot(bd, bd);
 				return (ad - bd) + (axy - bxy);
 			};
-			var draw = function (time_scheduled, single_frame) {
-				next_frame = null;
-				var want_another_frame = false;
-				if (!t_0) { t_0 = time_scheduled; }
-				// Arrow key motion
-				var dt = 16;
-				if (t_0 && time_scheduled) {
-					dt = time_scheduled - t_0;
-				}
-				dt = Math.min(dt, 300);
-				dt = dt || 16;
-				t_0 = null;
-				movable.update(dt);
-				if (movable.isMoving()) {
-					want_another_frame = true;
-				}
+			var draw = function () {
+				var draw_again = false;
+				// Keyboard and mouse motion
+				movable.update(this.dt);
+				if (movable.isMoving()) { draw_again = true; }
 				// Draw
 				q.draw(m.getContext('2d'), movable.scaled_position, offset, 1);
 				// Add verts
 				if (!q.exhausted_verts) {
 					q.addVerts();
 					$('#worst').text(q.verts.length + ' ' + q.border_verts.items[0].weight());
-					want_another_frame = true;
+					draw_again = true;
 				}
 				// Translate
 				var translator = q.verts[0];
@@ -350,17 +328,11 @@
 					}
 				}
 				offset = new Vertex(V.add(offset.indices, translator.indices), q);
-				if (!V.isZero(translator.indices)) { want_another_frame = true; }
-				// Request next frame
-				if (!single_frame && want_another_frame && !next_frame) {
-					next_frame = window.requestAnimFrame(draw);
-				}
+				if (!V.isZero(translator.indices)) { draw_again = true; }
+				// Return
+				return draw_again;
 			};
-			var requestFrame = function () {
-				if (!next_frame) {
-					next_frame = window.requestAnimFrame(draw);
-				}
-			};
+			window.frame_manager = new FrameManager(draw);
 			var resizeAdjustment = function () {
 				var r = Math.sqrt(window.innerWidth * window.innerWidth +
 					window.innerHeight * window.innerHeight)/2;
@@ -370,7 +342,7 @@
 				movable.scaled_position[1] = movable.position[1] * q.radius / r;
 				movable.v_walk = 0.003 * r / q.radius;
 				movable.v_run = 0.012 * r / q.radius;
-				requestFrame();
+				frame_manager.requestFrame();
 			};
 			movable.motionCallback = resizeAdjustment;
 			$('#helpbutton').on('click', function (e) {
