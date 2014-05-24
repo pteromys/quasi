@@ -17,6 +17,8 @@ var Movable = function () {
 	};
 	// Default implementation
 	this.position = [0, 0];
+	this.last_motion = [0, 0];
+	this.last_dt = this.default_dt;
 };
 
 Movable.prototype = {
@@ -48,15 +50,15 @@ Movable.prototype = {
 			return Math.max(-vmax, Math.min(t, vmax));
 		};
 		if (this.canAccelerate()) {
-			if (this.keys_down[this.KEYS.UP]) { this.velocity[1] += dv; }
-			if (this.keys_down[this.KEYS.DOWN]) { this.velocity[1] -= dv; }
+			if (this.keys_down[this.KEYS.UP]) { this.velocity[1] -= dv; }
+			if (this.keys_down[this.KEYS.DOWN]) { this.velocity[1] += dv; }
 			if (this.keys_down[this.KEYS.LEFT]) { this.velocity[0] -= dv; }
 			if (this.keys_down[this.KEYS.RIGHT]) { this.velocity[0] += dv; }
 		}
 		this.velocity = this.velocity.map(clampAndDecay);
 	},
 	update: function (dt) {
-		dt = dt || this.default_dt;
+		dt = this.last_dt = dt || this.default_dt;
 		this.updateVelocity(dt);
 		if (this.isMoving()) {
 			this.move(dt);
@@ -132,6 +134,8 @@ Movable.prototype = {
 			t.last_taps.up = now;
 			// Reset mouse position
 			t.keys_down['mouse'] = false;
+			// Set coasting velocity
+			t.moveCoast();
 		};
 		var mouseMove = function (e) {
 			if (!(e.originalEvent && e.originalEvent.touches && e.originalEvent.touches.length > 1)) {
@@ -165,13 +169,24 @@ Movable.prototype = {
 		return true;
 	},
 	move: function (dt) {
-		this.position[0] -= movable.velocity[0] * dt;
+		this.position[0] += movable.velocity[0] * dt;
 		this.position[1] += movable.velocity[1] * dt;
 	},
 	moveReset: function () {
 		this.position[0] = this.position[1] = 0;
 		this.velocity[0] = this.velocity[1] = 0;
 	},
-	moveFromTo: function (a, b) {},
+	moveFromTo: function (a, b) {
+		this.position[0] += this.last_motion[0] = a[0] - b[0];
+		this.position[1] += this.last_motion[1] = a[1] - b[1];
+	},
+	moveCoast: function () {
+		if (this.last_dt && this.last_motion) {
+			this.velocity[0] = this.last_motion[0] / this.last_dt;
+			this.velocity[1] = this.last_motion[1] / this.last_dt;
+			this.last_motion[0] = 0;
+			this.last_motion[1] = 0;
+		}
+	},
 	motionCallback: function () {},
 }

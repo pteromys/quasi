@@ -295,20 +295,22 @@
 		};
 		$(document).ready(function () {
 			var m = document.getElementById('main');
-			window.q = new QuasiLattice(11);
+			window.q = null;
+			var t_0 = null;
+			var offset = null;
 			window.movable = new Movable();
 			movable.bindHandlers(window);
-			movable.v_walk = 0.003;
-			movable.moveFromTo = function (a, b) {
-				this.position[0] += (b[0] - a[0]) * 5 / q.r;
-				this.position[1] += (b[1] - a[1]) * 5 / q.r;
+			movable.scaled_position = [0, 0];
+			window.replaceLattice = function (n, radius) {
+				window.q = new QuasiLattice(n, radius);
+				window.movable.moveReset();
+				offset = new Vertex(V.zero(q.n), q);
+				draw();
 			};
-			var t_0 = null;
-			var offset = new Vertex(V.zero(q.n), q);
 			var cmpTranslators = function (a, b) {
-				axy = V.add(movable.position, V.add(a.xy, offset.xy));
+				axy = V.add(movable.scaled_position, V.add(a.xy, offset.xy));
 				ad = V.add(offset.displacement, a.displacement);
-				bxy = V.add(movable.position, V.add(b.xy, offset.xy));
+				bxy = V.add(movable.scaled_position, V.add(b.xy, offset.xy));
 				bd = V.add(offset.displacement, b.displacement);
 				axy = Math.max(0, V.dot(axy, axy) - 6.25);
 				ad = V.dot(ad, ad);
@@ -333,7 +335,7 @@
 					want_another_frame = true;
 				}
 				// Draw
-				q.draw(m.getContext('2d'), movable.position, offset, 1);
+				q.draw(m.getContext('2d'), movable.scaled_position, offset, 1);
 				// Add verts
 				if (!q.exhausted_verts) {
 					q.addVerts();
@@ -359,7 +361,18 @@
 					next_frame = window.requestAnimFrame(draw);
 				}
 			};
-			movable.motionCallback = requestFrame;
+			var resizeAdjustment = function () {
+				var r = Math.sqrt(window.innerWidth * window.innerWidth +
+					window.innerHeight * window.innerHeight)/2;
+				// We flip the y axis because mathematicians like the y axis up
+				// Then we flip both axes again to use position subtractively
+				this.scaled_position[0] = -this.position[0] * q.radius / r;
+				this.scaled_position[1] = this.position[1] * q.radius / r;
+				movable.v_walk = 0.003 * r / q.radius;
+				movable.v_run = 0.01 * r / q.radius;
+				requestFrame();
+			};
+			movable.motionCallback = resizeAdjustment;
 			$('#helpbutton').on('click', function (e) {
 				e.stopPropagation();
 				if (window.location.hash == '#help') {
@@ -369,7 +382,7 @@
 			});
 			$(window).on('resize', requestFrame);
 			window.draw = draw;
-			draw();
+			replaceLattice(11);
 		});
 	</script>
 </head>
