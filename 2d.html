@@ -203,9 +203,6 @@
 				return [V.dot(this.x, indices), V.dot(this.y, indices)];
 			},
 			vertCmp: function (a, b) {
-				// Return true if a is a nicer vert to search from than b.
-				if (typeof(b) == 'undefined') { return true; }
-				if (typeof(a) == 'undefined') { return false; }
 				return (a.weight() < b.weight());
 			},
 			addVerts: function (v) {
@@ -317,7 +314,7 @@
 				// Add verts
 				if (!q.exhausted_verts) {
 					q.addVerts();
-					$('#worst').text(q.verts.length + ' ' + q.border_verts.items[0].weight());
+					$('#worst').text(q.verts.length + ' ' + q.border_verts.first().weight());
 					draw_again = true;
 				}
 				// Translate
