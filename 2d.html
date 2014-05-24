@@ -277,7 +277,7 @@
 				context.globalCompositeOperation = 'lighter';
 				context.translate(context.canvas.width/2, context.canvas.height/2);
 				scale = (scale || 1) * r / this.radius;
-				context.scale(scale, scale);
+				context.scale(scale, -scale);
 				var visibles = 0;
 				for (var j = 0; j < this.verts.length; j++) {
 					context.save();
