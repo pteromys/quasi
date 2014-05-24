@@ -305,7 +305,7 @@
 				window.q = new QuasiLattice(n, radius);
 				window.movable.moveReset();
 				offset = new Vertex(V.zero(q.n), q);
-				draw();
+				resizeAdjustment();
 			};
 			var cmpTranslators = function (a, b) {
 				axy = V.add(movable.scaled_position, V.add(a.xy, offset.xy));
@@ -366,10 +366,10 @@
 					window.innerHeight * window.innerHeight)/2;
 				// We flip the y axis because mathematicians like the y axis up
 				// Then we flip both axes again to use position subtractively
-				this.scaled_position[0] = -this.position[0] * q.radius / r;
-				this.scaled_position[1] = this.position[1] * q.radius / r;
+				movable.scaled_position[0] = -movable.position[0] * q.radius / r;
+				movable.scaled_position[1] = movable.position[1] * q.radius / r;
 				movable.v_walk = 0.003 * r / q.radius;
-				movable.v_run = 0.01 * r / q.radius;
+				movable.v_run = 0.012 * r / q.radius;
 				requestFrame();
 			};
 			movable.motionCallback = resizeAdjustment;
@@ -380,7 +380,7 @@
 					window.location = '#';
 				}
 			});
-			$(window).on('resize', requestFrame);
+			$(window).on('resize', resizeAdjustment);
 			window.draw = draw;
 			replaceLattice(11);
 		});
