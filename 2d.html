@@ -284,8 +284,10 @@
 				var cull_scale = -4 * this.variance * Math.log(0.5 / (this.dotsize * scale));
 				context.scale(scale, -scale);
 				tracker.num_visible = 0;
+				tracker.num_seen = 0;
 				for (var j = 0; j < this.verts.length; j++) {
 					// Compute
+					if (this.verts[j].was_seen) { tracker.num_seen += 1; }
 					var xy = V.add(xy_view, V.add(this.verts[j].xy, offset.xy));
 					if (Math.abs(xy[0]) > cull[0] || Math.abs(xy[1]) > cull[1]) {
 						continue;
@@ -294,6 +296,7 @@
 					scl = V.dot(scl, scl);
 					if (scl > cull_scale) { continue; }
 					tracker.num_visible += 1;
+					this.verts[j].was_seen = true;
 					scl = this.dotsize * Math.exp(-0.25 * scl / this.variance);
 					// Draw
 					context.save();
@@ -309,6 +312,7 @@
 			next_weight: 0,
 			threshold_weight: Infinity,
 			num_visible: 0,
+			num_seen: 0,
 		};
 		$(document).ready(function () {
 			var m = document.getElementById('main');
@@ -360,7 +364,7 @@
 				offset = new Vertex(V.add(offset.indices, translator.indices), q);
 				if (!V.isZero(translator.indices)) { draw_again = true; }
 				// Update tracker
-				$('#worst').text(tracker.num_visible + '/' + tracker.num_verts+ ' ' + tracker.next_weight + '/' + tracker.threshold_weight);
+				$('#worst').text(tracker.num_visible + '/' + tracker.num_seen + '/' + tracker.num_verts+ ' ' + tracker.next_weight + '/' + tracker.threshold_weight);
 				// Return
 				return draw_again;
 			};
