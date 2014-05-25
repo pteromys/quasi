@@ -117,6 +117,14 @@
 				}
 				return true;
 			},
+			rotate: function (v) {
+				if (!v.length) { return; }
+				var sw = v[0];
+				for (var i = 0; i < v.length - 1; i++) {
+					v[i] = v[i+1];
+				}
+				v[v.length - 1] = sw;
+			},
 		};
 		var M = {
 			mul: function (m, v) {
@@ -137,7 +145,6 @@
 			this.xy2 = V.dot(this.xy, this.xy);
 			this.d2 = V.dot(this.displacement, this.displacement);
 			this.r2 = this.d2 / quasilattice.variance;
-			this.is_border = true;
 		};
 		Vertex.prototype = {
 			toString: function () {
@@ -158,7 +165,6 @@
 			this.radius = target_radius || 5;
 			this.r2 = this.radius * this.radius;
 			this.achieved_radius = false;
-			this.exhausted_verts = false;
 			this.weight_threshold = Math.pow(Math.sqrt(-4 * Math.log(this.radius/100)) - 1, 2);
 			// Some constants
 			this.dotsize = 0.04 * this.radius;
@@ -171,6 +177,7 @@
 				this.x[i] = Math.cos(2 * Math.PI * i / n) * norm;
 				this.y[i] = Math.sin(2 * Math.PI * i / n) * norm;
 			}
+			this.tan = Math.tan(Math.PI / n);
 			// Vertex list
 			this.verts = [new Vertex(V.zero(n), this)];
 			this.border_verts = new Heap(this.verts, this.vertCmp);
@@ -210,37 +217,41 @@
 				// Automatically select v from the queue if not given.
 				if (!v) {
 					v = this.border_verts.pop();
-					if (!v || (this.achieved_radius && v.weight() > this.weight_threshold)) {
-						this.exhausted_verts = true;
-						return false;
-					}
+					if (!v) { return false; }
 				}
 				var nv;
 				for (var i = 0; i < this.directions.length; i++) {
-					nv = this.addVert(V.add(v.indices, this.directions[i].indices));
-					if (nv) {
-						nv.prev = v;
-						if (nv.xy2 > this.r2) {
-							this.achieved_radius = true;
-						};
-					}
+					nv = this.addVertSymmetric(V.add(v.indices, this.directions[i].indices));
 				}
-				v.is_border = false;
 				return true;
 			},
 			addVert: function (indices) {
 				if (this.vert_names[indices.join(' ')]) { return false; }
 				var nv = new Vertex(indices, this);
-				var r2 = V.dot(nv.displacement, nv.displacement) / this.variance;
-				if (r2 > 16) { return false; }
 				this.verts.push(nv);
-				this.border_verts.push(nv);
 				this.vert_names[nv.toString()] = nv;
-				if (nv.weight() < this.directions[0].weight() - EPSILON) {
-					this.direction_threshold = this.directions[0].weight();
+				if (nv.xy[0] > -EPSILON && nv.xy[0] <= this.tan * nv.xy[1]) {
+					this.border_verts.push(nv);
 				}
 				if (nv.weight() < this.direction_threshold + EPSILON) {
 					this.directions.unshift(nv);
+					if (nv.weight() < this.direction_threshold - EPSILON) {
+						this.direction_threshold = nv.weight();
+					}
+				}
+				if (nv) {
+					if (!this.achieved_radius && nv.xy2 > this.r2) {
+						this.achieved_radius = nv.indices;
+					};
+				}
+				return nv;
+			},
+			addVertSymmetric: function (indices) {
+				var nv;
+				for (var i = 0; i < this.n; i++) {
+					nv = this.addVert(indices);
+					nv = this.addVert(indices.map(function (x) { return -x; }));
+					V.rotate(indices);
 				}
 				return nv;
 			},
@@ -312,7 +323,7 @@
 				// Draw
 				q.draw(m.getContext('2d'), movable.scaled_position, offset, 1);
 				// Add verts
-				if (!q.exhausted_verts) {
+				if (!(q.achieved_radius && q.border_verts.first() && q.border_verts.first().weight() > q.weight_threshold)) {
 					q.addVerts();
 					$('#worst').text(q.verts.length + ' ' + q.border_verts.first().weight());
 					draw_again = true;
