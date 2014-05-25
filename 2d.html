@@ -266,29 +266,44 @@
 			draw: function (context, xy_view, offset, scale) {
 				// Set up context
 				var m = context.canvas;
-				var w = context.canvas.width = window.innerWidth;
-				var h = context.canvas.height = window.innerHeight;
+				var w = context.canvas.width = $(window).width();
+				var h = context.canvas.height = $(window).height();
 				var r = Math.sqrt(w*w + h*h)/2;
 				context = context.canvas.getContext('2d');
 				context.fillStyle = this.getGradient(context);
 				context.globalCompositeOperation = 'lighter';
 				context.translate(context.canvas.width/2, context.canvas.height/2);
 				scale = (scale || 1) * r / this.radius;
+				var cull = [0.5 * w / scale + this.dotsize,
+					0.5 * h / scale + this.dotsize];
+				var cull_scale = -4 * this.variance * Math.log(0.5 / (this.dotsize * scale));
 				context.scale(scale, -scale);
-				var visibles = 0;
+				tracker.num_visible = 0;
 				for (var j = 0; j < this.verts.length; j++) {
-					context.save();
+					// Compute
 					var xy = V.add(xy_view, V.add(this.verts[j].xy, offset.xy));
+					if (Math.abs(xy[0]) > cull[0] || Math.abs(xy[1]) > cull[1]) {
+						continue;
+					}
 					var scl = V.add(this.verts[j].displacement, offset.displacement);
-					scl = this.dotsize * Math.exp(-0.25 * V.dot(scl, scl) / this.variance);
-					if (scl > 0.5/50) { visibles += 1; }
+					scl = V.dot(scl, scl);
+					if (scl > cull_scale) { continue; }
+					tracker.num_visible += 1;
+					scl = this.dotsize * Math.exp(-0.25 * scl / this.variance);
+					// Draw
+					context.save();
 					context.translate(xy[0], xy[1]);
 					context.scale(scl, scl);
 					context.fillRect(-1, -1, 2, 2);
 					context.restore();
 				}
-				return visibles;
 			},
+		};
+		window.tracker = {
+			num_verts: 0,
+			next_weight: 0,
+			threshold_weight: Infinity,
+			num_visible: 0,
 		};
 		$(document).ready(function () {
 			var m = document.getElementById('main');
@@ -325,8 +340,10 @@
 				// Add verts
 				if (!(q.achieved_radius && q.border_verts.first() && q.border_verts.first().weight() > q.weight_threshold)) {
 					q.addVerts();
-					$('#worst').text(q.verts.length + ' ' + q.border_verts.first().weight());
 					draw_again = true;
+					tracker.num_verts = q.verts.length;
+					tracker.next_weight = q.border_verts.first().weight();
+					tracker.threshold_weight = q.weight_threshold;
 				}
 				// Translate
 				var translator = q.verts[0];
@@ -337,6 +354,8 @@
 				}
 				offset = new Vertex(V.add(offset.indices, translator.indices), q);
 				if (!V.isZero(translator.indices)) { draw_again = true; }
+				// Update tracker
+				$('#worst').text(tracker.num_visible + '/' + tracker.num_verts+ ' ' + tracker.next_weight + '/' + tracker.threshold_weight);
 				// Return
 				return draw_again;
 			};
@@ -371,7 +390,7 @@
 		<img src="quasi-thumbnail.png" alt="Preview" />
 		This demo requires HTML5 Canvas support.
 	</canvas>
-	<div id="worst" style="position: absolute; z-index: 10; width: 10em; height: 1em; left:0px; top:0px; color: #fff;"></div>
+	<div id="worst" style="position: absolute; z-index: 10; width: 100%; height: 1em; left:0px; top:0px; color: #fff;"></div>
 	<div id="help" class="overlay">
 		<div class="box">
 			<div class="button"><a href="#">&times;</a></div>
