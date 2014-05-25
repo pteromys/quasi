@@ -376,8 +376,8 @@
 				// Then we flip both axes again to use position subtractively
 				movable.scaled_position[0] = -movable.position[0] * q.radius / r;
 				movable.scaled_position[1] = movable.position[1] * q.radius / r;
-				movable.v_walk = 0.003 * r / q.radius;
-				movable.v_run = 0.012 * r / q.radius;
+				movable.v_walk = 0.0006 * r;
+				movable.v_run = 0.0024 * r;
 				frame_manager.requestFrame();
 			};
 			movable.motionCallback = resizeAdjustment;
