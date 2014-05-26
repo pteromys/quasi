@@ -236,11 +236,10 @@ QuasiLattice.prototype = {
 		var cull_scale = -4 * this.variance * Math.log(0.5 / (this.dotsize * scale));
 		var data = new Float64Array(3 * this.verts.length);
 		var index = 0;
-		var xy = [0, 0];
 		for (var j = 0; j < this.verts.length; j++) {
 			// Compute offset
-			x = this.verts[j].xy[0] + this.offset.xy[0];
-			y = this.verts[j].xy[1] + this.offset.xy[1];
+			var x = this.verts[j].xy[0] + this.offset.xy[0];
+			var y = this.verts[j].xy[1] + this.offset.xy[1];
 			// This can be slightly optimized using the binomial theorem.
 			var scl = V.add(this.verts[j].displacement, this.offset.displacement);
 			scl = V.dot(scl, scl);
@@ -255,11 +254,12 @@ QuasiLattice.prototype = {
 		return data.subarray(0, index);
 	},
 	reTranslate: function (xy) {
+		var t = this;
 		var cmpTranslators = function (a, b) {
-			axy = V.add(xy, V.add(a.xy, offset.xy));
-			ad = V.add(offset.displacement, a.displacement);
-			bxy = V.add(xy, V.add(b.xy, offset.xy));
-			bd = V.add(offset.displacement, b.displacement);
+			axy = V.add(xy, V.add(a.xy, t.offset.xy));
+			ad = V.add(t.offset.displacement, a.displacement);
+			bxy = V.add(xy, V.add(b.xy, t.offset.xy));
+			bd = V.add(t.offset.displacement, b.displacement);
 			axy = Math.max(0, V.dot(axy, axy) - 6.25);
 			ad = V.dot(ad, ad);
 			bxy = Math.max(0, V.dot(bxy, bxy) - 6.25);

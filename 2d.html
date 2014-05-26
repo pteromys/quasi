@@ -39,7 +39,7 @@
 			this.gradient.addColorStop(1, '#000');
 			return this.gradient;
 		};
-		var renderFromData = function (data, context, target_radius) {
+		var renderFromData = function (data, context, target_radius, xy) {
 			// Set up context
 			var m = context.canvas;
 			var w = context.canvas.width = $(window).width();
@@ -53,7 +53,7 @@
 			context.scale(scale, -scale);
 			for (var i = 0; i < data.length; i++) {
 				context.save();
-				context.translate(data[i], data[i+1]);
+				context.translate(data[i] + xy[0], data[i+1] + xy[1]);
 				i += 2;
 				context.scale(data[i], data[i]);
 				context.fillRect(-1, -1, 2, 2);
@@ -107,20 +107,15 @@
 				var draw_again = false;
 				// Keyboard and mouse motion
 				movable.update(this.dt);
-				//if (movable.isMoving()) { draw_again = true; }
+				if (movable.isMoving()) { draw_again = true; }
 				// Draw
 				//q.draw(m.getContext('2d'), movable.scaled_position, offset, 1);
-				renderFromData(window.current_data, m.getContext('2d'), 5);
-				// Add verts
+				renderFromData(window.current_data, m.getContext('2d'), 5, movable.scaled_position);
 				// Translate
-				/*var translator = q.verts[0];
-				for (var i = 0; i < q.directions.length; i++) {
-					if (cmpTranslators(translator, q.directions[i]) > 0) {
-						translator = q.directions[i];
-					}
-				}
-				offset = new Vertex(V.add(offset.indices, translator.indices), q);
-				if (!V.isZero(translator.indices)) { draw_again = true; }*/
+				window.renderWorker.postMessage({
+					type: 'reTranslate',
+					xy: movable.scaled_position,
+				});
 				// Update tracker
 				$('#worst').text(tracker.num_visible + '/' + tracker.num_seen + '/' + tracker.num_verts+ ' ' + tracker.next_weight + '/' + tracker.threshold_weight);
 				// Return
