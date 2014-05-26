@@ -237,9 +237,7 @@ QuasiLattice.prototype = {
 		var data = new Float64Array(3 * this.verts.length);
 		var index = 0;
 		for (var j = 0; j < this.verts.length; j++) {
-			// Compute offset
-			var x = this.verts[j].xy[0] + this.offset.xy[0];
-			var y = this.verts[j].xy[1] + this.offset.xy[1];
+			// Compute sizes
 			// This can be slightly optimized using the binomial theorem.
 			var scl = V.add(this.verts[j].displacement, this.offset.displacement);
 			scl = V.dot(scl, scl);
@@ -247,8 +245,8 @@ QuasiLattice.prototype = {
 			this.verts[j].was_seen = true;
 			scl = this.dotsize * Math.exp(-0.25 * scl / this.variance);
 			// Draw
-			data[index++] = x;
-			data[index++] = y;
+			data[index++] = this.verts[j].xy[0];
+			data[index++] = this.verts[j].xy[1];
 			data[index++] = scl;
 		}
 		return data.subarray(0, index);
@@ -292,6 +290,7 @@ self.reRender = function () {
 	self.postMessage({
 		type: 'render',
 		points: lattice.render(),
+		offset: lattice.offset.xy,
 	});
 };
 

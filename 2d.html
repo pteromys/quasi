@@ -68,11 +68,11 @@
 			num_seen: 0,
 		};
 		window.current_data = [];
+		window.current_offset = [0, 0];
 		window.options = {n: 5, r: 5};
 		$(document).ready(function () {
 			var m = document.getElementById('main');
 			var t_0 = null;
-			var offset = null;
 			window.movable = new Movable();
 			movable.canAccelerate = function () {
 				return !($('.overlay').is(':target'));
@@ -85,6 +85,7 @@
 				if (data.type == '') {
 				} else if (data.type == 'render') {
 					window.current_data = data.points;
+					window.current_offset = data.offset;
 					frame_manager.requestFrame();
 				} else if (data.type == 'vertRequest') {
 					this.postMessage({type: 'addVerts'});
@@ -93,14 +94,12 @@
 				}
 			};
 			window.replaceLattice = function (n, radius) {
-				//window.q = new QuasiLattice(n, radius);
 				window.renderWorker.postMessage({
 					type: 'setSymmetry',
 					"n": n,
 				});
 				window.renderWorker.postMessage({type: 'addVerts'});
 				window.movable.moveReset();
-				offset = new Int8Array(n);
 				resizeAdjustment();
 			};
 			var draw = function () {
@@ -109,8 +108,10 @@
 				movable.update(this.dt);
 				if (movable.isMoving()) { draw_again = true; }
 				// Draw
-				//q.draw(m.getContext('2d'), movable.scaled_position, offset, 1);
-				renderFromData(window.current_data, m.getContext('2d'), 5, movable.scaled_position);
+				renderFromData(window.current_data, m.getContext('2d'), 5, [
+					movable.scaled_position[0] + window.current_offset[0],
+					movable.scaled_position[1] + window.current_offset[1],
+				]);
 				// Translate
 				window.renderWorker.postMessage({
 					type: 'reTranslate',
