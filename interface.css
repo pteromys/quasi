@@ -1,0 +1,69 @@
+/* Overlays and interface boxes */
+.overlay {
+	position: absolute;
+	top: 1em; bottom: 2em; left: 1em; right: 1em;
+	margin: 0em; padding: 0em;
+	text-align: center;
+	display: none;
+	z-index: 1;
+}
+.overlay:target {
+	display: block;
+}
+.box {
+	display: inline-block;
+	vertical-align: middle;
+	background: #333;
+	color: #fff;
+	padding: 0.5em 1.5em;
+	max-width: 25em;
+	text-align: left;
+	border-radius: 1em;
+	overflow-y: auto;
+	max-height: 100%;
+}
+.box p {
+	line-height: 1.5;
+	margin: 1em 0em;
+}
+.box a:link { color: #7bf; }
+.box a:visited { color: #d7f; }
+.box a:hover { color: #bdf; }
+.box a:active { color: #ffc; }
+
+/* Form elements */
+.button {
+	font-family: sans;
+	font-weight: bold;
+	font-size: 200%;
+	width: 1em;
+	height: 1em;
+	margin: 0.5em;
+	color: #fff;
+	background: #666;
+	background: rgba(255, 255, 255, 0.25);
+	opacity: 0.8;
+	border-radius: 0.5em;
+}
+.button:hover {
+	opacity: 1.0;
+}
+.button > a, .box .button > a {
+	color: inherit;
+	text-decoration: none;
+	display: block;
+	width: 1em;
+	height: 1em;
+	text-align: center;
+	line-height: 1em;
+}
+body > .button {
+	position: absolute;
+	bottom: 0.25em;
+	right: 0.25em;
+}
+.box .button {
+	float: right;
+	margin-right: -0.5em;
+	margin-top: 0em;
+}
