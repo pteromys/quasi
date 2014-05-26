@@ -328,15 +328,9 @@
 				frame_manager.requestFrame();
 			};
 			movable.motionCallback = resizeAdjustment;
-			$('body > .button').on('click', function (e) {
-				e.stopPropagation();
-				if (window.location.hash == $(this).attr('href')) {
-					e.preventDefault();
-					window.location = '#';
-				}
-			});
 			$(window).on('resize', resizeAdjustment);
 			window.draw = draw;
+			// Activate the form
 			var replacement_form = new ActiveForm($('#form_config'));
 			replacement_form.field_processors.n = function (field) {
 				var ans = ActiveForm.numericProcessor(field);
@@ -351,6 +345,7 @@
 				replaceLattice(data.n);
 				window.location = '#';
 			});
+			// Set initial lattice
 			replaceLattice(5);
 		});
 	</script>
@@ -382,7 +377,9 @@
 			and released under the <a href="http://unlicense.org/">Unlicense</a>.</p>
 		</div>
 	</div>
-	<a class="button icon" href="#help" id="button_help" title="Help">?</a>
-	<a class="button icon" href="#config" id="button_config" title="Settings">&#x2699;</a>
+	<a class="button icon button_root"
+		href="#help" id="button_help" title="Help">?</a>
+	<a class="button icon button_root"
+		href="#config" id="button_config" title="Settings">&#x2699;</a>
 </body>
 </html>

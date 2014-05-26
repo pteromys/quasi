@@ -91,3 +91,15 @@ ActiveForm.prototype = {
 
 return ActiveForm;
 })();
+
+var activateRootButtons = function () {
+	$('.button_root').on('click', function (e) {
+		e.stopPropagation();
+		if (window.location.hash == $(this).attr('href')) {
+			e.preventDefault();
+			window.location = '#';
+		}
+	});
+}
+$(document).ready(activateRootButtons);
+
