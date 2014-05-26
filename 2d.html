@@ -3,13 +3,20 @@
 <head>
 	<title>Quasicrystals</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<link rel="stylesheet" type"text/css" href="fscanvas.css" />
-	<link rel="stylesheet" type"text/css" href="interface.css" />
+	<link rel="stylesheet" type="text/css" href="icons/webfont.css" />
+	<link rel="stylesheet" type="text/css" href="fscanvas.css" />
+	<link rel="stylesheet" type="text/css" href="interface.css" />
+	<style type="text/css">
+		#config .box { text-align: center; }
+		.formline { margin: 0.5em -1em 0em; }
+		.formline .button { margin: 0em 0.25em; }
+	</style>
 	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
 	<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
 	<script type="text/javascript" src="heap.js"></script>
 	<script type="text/javascript" src="motion.js"></script>
 	<script type="text/javascript" src="frames.js"></script>
+	<script type="text/javascript" src="interface.js"></script>
 	<script type="text/javascript">
 		var fillCircle = function (context, x, y, r) {
 			context.beginPath();
@@ -17,6 +24,7 @@
 			context.fill();
 		};
 		var EPSILON = 1e-9;
+		var DEGREE_LIMIT = 23;
 		// Vector and Matrix operations
 		var V = {
 			dot: function (x, y) {
@@ -320,15 +328,29 @@
 				frame_manager.requestFrame();
 			};
 			movable.motionCallback = resizeAdjustment;
-			$('#helpbutton').on('click', function (e) {
+			$('body > .button').on('click', function (e) {
 				e.stopPropagation();
-				if (window.location.hash == '#help') {
+				if (window.location.hash == $(this).attr('href')) {
 					e.preventDefault();
 					window.location = '#';
 				}
 			});
 			$(window).on('resize', resizeAdjustment);
 			window.draw = draw;
+			var replacement_form = new ActiveForm($('#form_config'));
+			replacement_form.field_processors.n = function (field) {
+				var ans = ActiveForm.numericProcessor(field);
+				if (ans[0]) { return ans; }
+				if (ans[1] < 2) { return [true, 'Enter a number at least 2.']; }
+				if (ans[1] > DEGREE_LIMIT) { return [true,
+					'Degrees higher than ' + DEGREE_LIMIT +' not supported.']; }
+				return ans;
+			};
+			replacement_form.actions.push(function (e, data) {
+				e.preventDefault();
+				replaceLattice(data.n);
+				window.location = '#';
+			});
 			replaceLattice(5);
 		});
 	</script>
@@ -341,15 +363,26 @@
 		</canvas>
 	</div>
 	<div id="worst" style="position: absolute; z-index: 10; width: 100%; height: 1em; left:0px; top:0px; color: #fff;"></div>
+	<div id="config" class="overlay"><div class="box">
+		<h2>Choose symmetry</h2>
+		<form method="post" action="#" id="form_config"><div class="formline">
+			<a class="button icon" title="Cancel" href="#">&times;</a>
+			<label for="config_n" class="icon">&#x21ba;</label>
+			<input type="text" class="numeric valid" id="config_n" name="n" value="5" />
+			<button type="submit" class="button icon"
+				id="config_submit" title="Redraw">&#x00bb;</button>
+		</div></form>
+	</div></div>
 	<div id="help" class="overlay">
 		<div class="box">
-			<div class="button"><a href="#">&times;</a></div>
+			<a class="button icon button_close" href="#">&times;</a>
 			<p>This page draws patterns reminiscient of quasicrystals
 			by projecting higher-dimensional lattices into the plane.
 			<p>Code written by <a href="http://pteromys.melonisland.net/">Pteromys</a>
 			and released under the <a href="http://unlicense.org/">Unlicense</a>.</p>
 		</div>
 	</div>
-	<div class="button"><a href="#help" id="helpbutton">?</a></div>
+	<a class="button icon" href="#help" id="button_help" title="Help">?</a>
+	<a class="button icon" href="#config" id="button_config" title="Settings">&#x2699;</a>
 </body>
 </html>
