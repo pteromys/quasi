@@ -93,6 +93,7 @@
 			},
 		};
 		var QuasiLattice = function (n, target_radius) { // n = degree of symmetry
+			if (n < 2) { n = 2; }
 			this.n = n;
 			this.radius = target_radius || 5;
 			this.r2 = this.radius * this.radius;
@@ -105,11 +106,18 @@
 			this.x = V.zero(n);
 			this.y = V.zero(n);
 			var norm = Math.sqrt(2/n);
+			if (n == 2) { norm = Math.sqrt(0.5); }
 			for (var i = 0; i < n; i++) {
 				this.x[i] = Math.cos(2 * Math.PI * i / n) * norm;
 				this.y[i] = Math.sin(2 * Math.PI * i / n) * norm;
 			}
-			this.tan = Math.tan(Math.PI / n);
+			if (n % 2) {
+				this.cot = 1/Math.tan(Math.PI / n);
+			} else if (n == 2) {
+				this.cot = -1; // Actual value is -Infinity but we don't need it.
+			} else {
+				this.cot = 1/Math.tan(2 * Math.PI / n);
+			}
 			// Vertex list
 			this.verts = [new Vertex(V.zero(n), this)];
 			this.border_verts = new Heap(this.verts, this.vertCmp);
@@ -162,7 +170,7 @@
 				var nv = new Vertex(indices, this);
 				this.verts.push(nv);
 				this.vert_names[nv.toString()] = nv;
-				if (nv.xy[0] > -EPSILON && nv.xy[0] <= this.tan * nv.xy[1]) {
+				if (nv.xy[0] > -EPSILON && nv.xy[1] >= this.cot * nv.xy[0]) {
 					this.border_verts.push(nv);
 				}
 				if (nv.weight() < this.direction_threshold + EPSILON) {
@@ -303,6 +311,7 @@
 				// Then we flip both axes again to use position subtractively
 				movable.scaled_position[0] = -movable.position[0] * q.radius / r;
 				movable.scaled_position[1] = movable.position[1] * q.radius / r;
+				if (q.n == 2) { movable.scaled_position[1] = 0; }
 				movable.v_walk = 0.0006 * r;
 				movable.v_run = 0.0024 * r;
 				frame_manager.requestFrame();
