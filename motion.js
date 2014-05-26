@@ -80,7 +80,7 @@ Movable.prototype = {
 				t.motionCallback();
 			}
 			t.keys_down[t.KEYS.SHIFT] = e.shiftKey;
-			if (e.which == t.KEYS.ESC) {
+			if (e.which == t.KEYS.ESC && t.canAccelerate()) {
 				t.moveReset();
 				t.motionCallback();
 			}

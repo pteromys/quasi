@@ -92,14 +92,61 @@ ActiveForm.prototype = {
 return ActiveForm;
 })();
 
-var activateRootButtons = function () {
-	$('.button_root').on('click', function (e) {
-		e.stopPropagation();
-		if (window.location.hash == $(this).attr('href')) {
-			e.preventDefault();
-			window.location = '#';
-		}
-	});
-}
-$(document).ready(activateRootButtons);
 
+
+var ButtonSystem = (function () {
+
+var clickElement = function (elt) {
+	// jQuery click() won't open hyperlinks, so we do it ourselves.
+	elt = $(elt);
+	var ev = $.Event("click");
+	elt.trigger(ev);
+	if (elt.is('a') && !ev.isDefaultPrevented()) {
+		window.location = elt.attr('href');
+	}
+};
+
+var ButtonSystem = {
+	KEYS: {
+		"SHIFT": 16,
+		"ESC": 27,
+		"SPACE": 32,
+		"QUESTION": 191,
+	},
+	activateRootButtons: function () {
+		$('.button_root').on('click', function (e) {
+			e.stopPropagation();
+			if (window.location.hash == $(this).attr('href')) {
+				e.preventDefault();
+				window.location = '#';
+			}
+		});
+	},
+	activateKeys: function () {
+		var t = this;
+		$(window).on('keydown', function (e) {
+			if ($('.overlay').is(':target')) {
+				if (e.which == t.KEYS.ESC) {
+					var target = $(e.target);
+					var target2 = target.find(':target');
+					if (target2.length) { target = target2; }
+					window.setTimeout(function () {
+						clickElement(target.find('.button_close'));
+					}, 10);
+				}
+			} else {
+				if (e.which == t.KEYS.SPACE) {
+					clickElement($('#button_config'));
+				} else if (e.which == t.KEYS.QUESTION && e.shiftKey) {
+					clickElement($('#button_help'));
+				}
+			}
+		});
+	},
+};
+ButtonSystem.activateKeys = ButtonSystem.activateKeys.bind(ButtonSystem);
+$(document).ready(ButtonSystem.activateRootButtons);
+$(document).ready(ButtonSystem.activateKeys);
+
+return ButtonSystem;
+})();
