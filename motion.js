@@ -97,6 +97,7 @@ Movable.prototype = {
 			}
 		};
 		var mousePress = function (e) {
+			if (!t.canAccelerate()) { return; }
 			if (!(e.originalEvent && e.originalEvent.touches && e.originalEvent.touches.length > 1)) {
 				e.preventDefault();
 			}
@@ -139,7 +140,9 @@ Movable.prototype = {
 		};
 		var mouseMove = function (e) {
 			if (!(e.originalEvent && e.originalEvent.touches && e.originalEvent.touches.length > 1)) {
-				e.preventDefault();
+				if (t.canAccelerate()) {
+					e.preventDefault();
+				}
 			}
 			if (typeof(e.pageX) === 'undefined') {
 				e = e.originalEvent.touches[0];

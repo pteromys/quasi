@@ -255,6 +255,9 @@
 			var t_0 = null;
 			var offset = null;
 			window.movable = new Movable();
+			movable.canAccelerate = function () {
+				return !($('.overlay').is(':target'));
+			};
 			movable.bindHandlers(window);
 			movable.scaled_position = [0, 0];
 			window.replaceLattice = function (n, radius) {
