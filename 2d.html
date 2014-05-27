@@ -8,10 +8,14 @@
 	<style type="text/css">
 		html, body { width: 100%; height: 100%; margin: 0px; padding: 0px; }
 		body { background: #000; }
-		canvas { display: block; width: 100%; height: 100%; }
+		canvas {
+			position: absolute;
+			top: 0px; left: 0px;
+		}
 		#canvascontainer {
 			position: absolute;
 			top: 0px; bottom: 0px; left: 0px; right: 0px;
+			overflow: hidden;
 		}
 		#config .box { text-align: center; }
 		.formline { margin: 0.5em -1em 0em; }
@@ -39,21 +43,20 @@
 			this.gradient.addColorStop(1, '#000');
 			return this.gradient;
 		};
-		var renderFromData = function (data, context, target_radius, xy) {
+		var renderFromData = function (data, context) {
 			// Set up context
 			var m = context.canvas;
-			var w = context.canvas.width = $(window).width();
-			var h = context.canvas.height = $(window).height();
-			var r = Math.sqrt(w*w + h*h)/2;
+			var r = window.screen_radius;
+			context.canvas.width = context.canvas.height = 3 * r;
 			context = context.canvas.getContext('2d');
 			context.fillStyle = getGradient(context);
 			context.globalCompositeOperation = 'lighter';
 			context.translate(context.canvas.width/2, context.canvas.height/2);
-			var scale = r / target_radius;
+			var scale = r / window.options.r;
 			context.scale(scale, -scale);
 			for (var i = 0; i < data.length; i++) {
 				context.save();
-				context.translate(data[i] + xy[0], data[i+1] + xy[1]);
+				context.translate(data[i], data[i+1]);
 				i += 2;
 				context.scale(data[i], data[i]);
 				context.fillRect(-1, -1, 2, 2);
@@ -69,6 +72,7 @@
 		};
 		window.current_data = [];
 		window.current_offset = [0, 0];
+		window.screen_radius = 1000;
 		window.options = {n: 5, r: 5};
 		$(document).ready(function () {
 			var m = document.getElementById('main');
@@ -86,9 +90,15 @@
 				} else if (data.type == 'render') {
 					window.current_data = data.points;
 					window.current_offset = data.offset;
-					frame_manager.requestFrame();
+					window.sprite_manager.requestFrame();
 				} else if (data.type == 'vertRequest') {
 					this.postMessage({type: 'addVerts'});
+				} else if (data.type == 'translationDone') {
+					translation_in_progress = false;
+					if (translation_queued) {
+						translation_queued = false;
+						window.reTranslate();
+					}
 				} else {
 					// Show a message box...
 				}
@@ -100,23 +110,50 @@
 				});
 				window.renderWorker.postMessage({type: 'addVerts'});
 				window.movable.moveReset();
+				window.current_offset[0] = window.current_offset[1] = 0;
+				movable.scaled_position[0] = movable.scaled_position[1] = 0;
 				resizeAdjustment();
 			};
+			window.translation_in_progress = false;
+			window.translation_queued = false;
+			window.reTranslate = function () {
+				if (!translation_in_progress) {
+					window.renderWorker.postMessage({
+						type: 'reTranslate',
+						xy: movable.scaled_position
+					});
+					translation_in_progress = true;
+				} else {
+					translation_queued = true;
+				}
+			};
+			var fillCanvas = function () {
+				renderFromData(window.current_data, m.getContext('2d'));
+				window.frame_manager.requestFrame();
+				return false;
+			};
+			window.sprite_manager = new FrameManager(fillCanvas);
 			var draw = function () {
 				var draw_again = false;
 				// Keyboard and mouse motion
 				movable.update(this.dt);
 				if (movable.isMoving()) { draw_again = true; }
 				// Draw
-				renderFromData(window.current_data, m.getContext('2d'), 5, [
-					movable.scaled_position[0] + window.current_offset[0],
-					movable.scaled_position[1] + window.current_offset[1],
-				]);
-				// Translate
-				window.renderWorker.postMessage({
-					type: 'reTranslate',
-					xy: movable.scaled_position,
+				var scale = window.screen_radius / window.options.r;
+				var transform = [
+					-movable.position[0] + scale * window.current_offset[0] -
+						1.5 * window.screen_radius + $('#canvascontainer').width()/2,
+					-movable.position[1] - scale * window.current_offset[1] -
+						1.5 * window.screen_radius + $('#canvascontainer').height()/2,
+				];
+				transform = 'translate(' + transform[0] + 'px, ' + transform[1] + 'px)';
+				$('#main').css({
+					"transform": transform,
+					"-moz-transform": transform,
+					"-webkit-transform": transform,
 				});
+				// Translate
+				window.reTranslate();
 				// Update tracker
 				$('#worst').text(tracker.num_visible + '/' + tracker.num_seen + '/' + tracker.num_verts+ ' ' + tracker.next_weight + '/' + tracker.threshold_weight);
 				// Return
@@ -124,18 +161,25 @@
 			};
 			window.frame_manager = new FrameManager(draw);
 			var resizeAdjustment = function () {
-				var r = Math.sqrt(window.innerWidth * window.innerWidth +
+				var r = window.screen_radius =
+					Math.sqrt(window.innerWidth * window.innerWidth +
 					window.innerHeight * window.innerHeight)/2;
+				movable.v_walk = 0.0006 * r;
+				movable.v_run = 0.0024 * r;
+				window.renderWorker.postMessage({
+					type: 'setRadius',
+					radius: r,
+				});
+			};
+			movable.motionCallback = function () {
+				var r = window.screen_radius;
 				// We flip the y axis because mathematicians like the y axis up
 				// Then we flip both axes again to use position subtractively
 				movable.scaled_position[0] = -movable.position[0] * window.options.r / r;
 				movable.scaled_position[1] = movable.position[1] * window.options.r / r;
 				if (window.options.n == 2) { movable.scaled_position[1] = 0; }
-				movable.v_walk = 0.0006 * r;
-				movable.v_run = 0.0024 * r;
-				frame_manager.requestFrame();
+				window.frame_manager.requestFrame();
 			};
-			movable.motionCallback = resizeAdjustment;
 			$(window).on('resize', resizeAdjustment);
 			window.draw = draw;
 			// Activate the form

@@ -238,6 +238,8 @@ QuasiLattice.prototype = {
 		var index = 0;
 		for (var j = 0; j < this.verts.length; j++) {
 			// Compute sizes
+			if (Math.abs(this.verts[j].xy[0]) > 1.5 * this.radius) { continue; }
+			if (Math.abs(this.verts[j].xy[1]) > 1.5 * this.radius) { continue; }
 			// This can be slightly optimized using the binomial theorem.
 			var scl = V.add(this.verts[j].displacement, this.offset.displacement);
 			scl = V.dot(scl, scl);
@@ -303,6 +305,9 @@ self.onmessage = function (e) {
 			options.n = data.n;
 			self.lattice = new QuasiLattice(options.n, options.r);
 		}
+	} else if (data.type == 'setRadius') {
+		screen_state.radius = data.radius;
+		self.reRender();
 	} else if (data.type == 'addVerts') {
 		self.lattice.addVerts();
 		self.reRender();
@@ -313,6 +318,7 @@ self.onmessage = function (e) {
 		self.reRender();
 	} else if (data.type == 'reTranslate') {
 		if (self.lattice.reTranslate(data.xy)) { self.reRender(); }
+		self.postMessage({type: 'translationDone'});
 	} else {
 		self.postMessage({
 			type: 'message',
