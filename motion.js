@@ -92,12 +92,16 @@ Movable.prototype = {
 			t.keys_down[t.KEYS.SHIFT] = e.shiftKey;
 		};
 		var releaseAll = function (e) {
+			if (e.type == 'mouseleave' && e.toElement) { return; }
 			for (var k in t.keys_down) {
-				t.keys_down[k] = false;
+				if (k != 'mouse') {
+					t.keys_down[k] = false;
+				}
 			}
 		};
 		var mousePress = function (e) {
 			if (!t.canAccelerate()) { return; }
+			if ($(e.target).is('a[href], input, select, textarea, button')) { return; }
 			if (!(e.originalEvent && e.originalEvent.touches && e.originalEvent.touches.length > 1)) {
 				e.preventDefault();
 			}
@@ -111,6 +115,7 @@ Movable.prototype = {
 			t.last_taps.xy = [e.pageX, e.pageY];
 		};
 		var mouseRelease = function (e) {
+			if (e.type == 'mouseleave' && e.toElement) { return; }
 			// Check tap-motion threshold
 			if (!t.last_taps.xy.every(function (x, i) {
 					return Math.abs(x - t.keys_down['mouse'][i]) < t.TAP_MOVE_THRESHOLD;
@@ -163,7 +168,7 @@ Movable.prototype = {
 		element.on('keyup', release);
 		element.on('blur mouseleave', releaseAll);
 		element.on('mousedown touchstart', mousePress);
-		element.on('mouseup mouseleave touchend touchcancel', mouseRelease);
+		element.on('blur mouseup mouseleave touchend touchcancel', mouseRelease);
 		element.on('mousemove touchmove', mouseMove);
 	},
 

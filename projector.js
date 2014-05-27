@@ -316,6 +316,9 @@ self.onmessage = function (e) {
 		}
 	} else if (data.type == 'render') {
 		self.reRender();
+	} else if (data.type == 'moveReset') {
+		self.lattice.offset = self.lattice.verts[0];
+		self.reRender();
 	} else if (data.type == 'reTranslate') {
 		if (self.lattice.reTranslate(data.xy)) { self.reRender(); }
 		self.postMessage({type: 'translationDone'});

@@ -11,6 +11,16 @@
 		canvas {
 			position: absolute;
 			top: 0px; left: 0px;
+			opacity: 0;
+			z-index: 1;
+			transition: opacity 1s 0.2s;
+			-webkit-transition: opacity 1s 0.2s;
+		}
+		canvas.active {
+			opacity: 1;
+			z-index: 0;
+			transition: opacity 0s 0s;
+			-webkit-transition: opacity 0s 0s;
 		}
 		#canvascontainer {
 			position: absolute;
@@ -34,27 +44,23 @@
 			context.fill();
 		};
 		var DEGREE_LIMIT = 23;
-		var GRADIENT = undefined;
-		var getGradient = function (context) {
-			if (GRADIENT) { return GRADIENT; }
-			this.gradient = context.createRadialGradient(0, 0, 0, 0, 0, 1);
-			this.gradient.addColorStop(0, '#fff');
-			this.gradient.addColorStop(0.5, '#ff0');
-			this.gradient.addColorStop(1, '#000');
-			return this.gradient;
-		};
-		var renderFromData = function (data, context) {
+		var BLIT_LIMIT = 100;
+		var renderData = function (data, canvas) {
 			// Set up context
-			var m = context.canvas;
-			var r = window.screen_radius;
-			context.canvas.width = context.canvas.height = 3 * r;
-			context = context.canvas.getContext('2d');
-			context.fillStyle = getGradient(context);
+			var context = canvas.getContext('2d');
+			context.save();
+			var gradient = context.createRadialGradient(0, 0, 0, 0, 0, 1);
+			gradient.addColorStop(0, '#fff');
+			gradient.addColorStop(0.5, '#ff0');
+			gradient.addColorStop(1, '#000');
+			var r = canvas.width / 3;
+			context.fillStyle = gradient;
 			context.globalCompositeOperation = 'lighter';
-			context.translate(context.canvas.width/2, context.canvas.height/2);
+			context.translate(canvas.width/2, canvas.height/2);
 			var scale = r / window.options.r;
 			context.scale(scale, -scale);
-			for (var i = 0; i < data.length; i++) {
+			var j = 0;
+			for (var i = window.current_data_index; i < data.length && j < BLIT_LIMIT; i++, j++) {
 				context.save();
 				context.translate(data[i], data[i+1]);
 				i += 2;
@@ -62,6 +68,21 @@
 				context.fillRect(-1, -1, 2, 2);
 				context.restore();
 			}
+			window.current_data_index = i;
+			context.restore();
+			return i < data.length;
+		};
+		var swapBuffers = function () {
+			$('canvas').toggleClass('active');
+		}
+		var resetActiveBuffer = function () {
+			$('canvas.active').prop({
+				width: 3 * window.screen_radius,
+				height: 3 * window.screen_radius,
+			});
+		};
+		var resetZoom = function () {
+			$('meta[name="viewport"]').attr('content', 'width=device-width, initial-scale=1');
 		};
 		window.tracker = {
 			num_verts: 0,
@@ -70,12 +91,14 @@
 			num_visible: 0,
 			num_seen: 0,
 		};
+		window.current_n = 5;
 		window.current_data = [];
-		window.current_offset = [0, 0];
+		window.current_data_index = 0;
+		window.done_threshold = Infinity;
+		window.offsets = {one: [0, 0], two: [0, 0]};
 		window.screen_radius = 1000;
 		window.options = {n: 5, r: 5};
 		$(document).ready(function () {
-			var m = document.getElementById('main');
 			var t_0 = null;
 			window.movable = new Movable();
 			movable.canAccelerate = function () {
@@ -83,13 +106,23 @@
 			};
 			movable.bindHandlers(window);
 			movable.scaled_position = [0, 0];
+			movable.moveReset = function () {
+				this.position[0] = this.position[1] = 0;
+				this.velocity[0] = this.velocity[1] = 0;
+				window.renderWorker.postMessage({type: 'moveReset'});
+			};
 			window.renderWorker = new Worker('projector.js');
 			window.renderWorker.onmessage = function (e) {
 				var data = e.data;
 				if (data.type == '') {
 				} else if (data.type == 'render') {
+				var active_ready = (window.current_data_index >= window.current_data.length || window.current_data_index >= window.done_threshold);
 					window.current_data = data.points;
-					window.current_offset = data.offset;
+					window.done_threshold = window.current_data_index + 3 * BLIT_LIMIT;
+					window.current_data_index = 0;
+					if (active_ready) { swapBuffers(); }
+					resetActiveBuffer();
+					window.offsets[$('canvas.active').prop('id')] = data.offset;
 					window.sprite_manager.requestFrame();
 				} else if (data.type == 'vertRequest') {
 					this.postMessage({type: 'addVerts'});
@@ -104,14 +137,15 @@
 				}
 			};
 			window.replaceLattice = function (n, radius) {
+				window.current_n = n;
 				window.renderWorker.postMessage({
 					type: 'setSymmetry',
 					"n": n,
 				});
 				window.renderWorker.postMessage({type: 'addVerts'});
 				window.movable.moveReset();
-				window.current_offset[0] = window.current_offset[1] = 0;
-				movable.scaled_position[0] = movable.scaled_position[1] = 0;
+				//movable.scaled_position[0] = movable.scaled_position[1] = 0;
+				resetZoom();
 				resizeAdjustment();
 			};
 			window.translation_in_progress = false;
@@ -120,7 +154,7 @@
 				if (!translation_in_progress) {
 					window.renderWorker.postMessage({
 						type: 'reTranslate',
-						xy: movable.scaled_position
+						xy: movable.scaled_position,
 					});
 					translation_in_progress = true;
 				} else {
@@ -128,9 +162,9 @@
 				}
 			};
 			var fillCanvas = function () {
-				renderFromData(window.current_data, m.getContext('2d'));
+				var ans = renderData(window.current_data, $('canvas.active')[0]);
 				window.frame_manager.requestFrame();
-				return false;
+				return ans;
 			};
 			window.sprite_manager = new FrameManager(fillCanvas);
 			var draw = function () {
@@ -140,17 +174,23 @@
 				if (movable.isMoving()) { draw_again = true; }
 				// Draw
 				var scale = window.screen_radius / window.options.r;
-				var transform = [
-					-movable.position[0] + scale * window.current_offset[0] -
-						1.5 * window.screen_radius + $('#canvascontainer').width()/2,
-					-movable.position[1] - scale * window.current_offset[1] -
-						1.5 * window.screen_radius + $('#canvascontainer').height()/2,
-				];
-				transform = 'translate(' + transform[0] + 'px, ' + transform[1] + 'px)';
-				$('#main').css({
-					"transform": transform,
-					"-moz-transform": transform,
-					"-webkit-transform": transform,
+				$('canvas').each(function (i, canvas) {
+					$(canvas).css({
+						width: 3 * window.screen_radius,
+						height: 3 * window.screen_radius,
+					});
+					var transform = [
+						-movable.position[0] + scale * window.offsets[canvas.id][0] -
+							$(canvas).width()/2 + $('#canvascontainer').width()/2,
+						-movable.position[1] - scale * window.offsets[canvas.id][1] -
+							$(canvas).height()/2 + $('#canvascontainer').height()/2,
+					];
+					transform = 'translate(' + transform[0] + 'px, ' + transform[1] + 'px)';
+					$(canvas).css({
+						"transform": transform,
+						"-moz-transform": transform,
+						"-webkit-transform": transform,
+					});
 				});
 				// Translate
 				window.reTranslate();
@@ -204,10 +244,11 @@
 </head>
 <body>
 	<div id="canvascontainer">
-		<canvas id="main">
+		<canvas id="one" class="active">
 			<img src="quasi-thumbnail.png" alt="Preview" />
 			This demo requires HTML5 Canvas support.
 		</canvas>
+		<canvas id="two"></canvas>
 	</div>
 	<div id="worst" style="position: absolute; z-index: 10; width: 100%; height: 1em; left:0px; top:0px; color: #fff;"></div>
 	<div id="config" class="overlay"><div class="box">
