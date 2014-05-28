@@ -13,8 +13,8 @@
 			top: 0px; left: 0px;
 			opacity: 0;
 			z-index: 1;
-			transition: opacity 1s 0.2s;
-			-webkit-transition: opacity 1s 0.2s;
+			transition: opacity 10s 0.2s;
+			-webkit-transition: opacity 10s 0.2s;
 		}
 		canvas.active {
 			opacity: 1;
@@ -94,7 +94,7 @@
 		window.current_n = 5;
 		window.current_data = [];
 		window.current_data_index = 0;
-		window.done_threshold = Infinity;
+		window.done_threshold = 0;
 		window.offsets = {one: [0, 0], two: [0, 0]};
 		window.screen_radius = 1000;
 		window.options = {n: 5, r: 5};
@@ -146,7 +146,7 @@
 				window.movable.moveReset();
 				//movable.scaled_position[0] = movable.scaled_position[1] = 0;
 				resetZoom();
-				resizeAdjustment();
+				resizeTotal();
 			};
 			window.translation_in_progress = false;
 			window.translation_queued = false;
@@ -200,18 +200,19 @@
 				return draw_again;
 			};
 			window.frame_manager = new FrameManager(draw);
-			var resizeAdjustment = function () {
+			var resizeTotal = function () {
 				var r = window.screen_radius =
 					Math.sqrt(window.innerWidth * window.innerWidth +
 					window.innerHeight * window.innerHeight)/2;
 				movable.v_walk = 0.0006 * r;
 				movable.v_run = 0.0024 * r;
+				resizeLocal();
 				window.renderWorker.postMessage({
 					type: 'setRadius',
 					radius: r,
 				});
 			};
-			movable.motionCallback = function () {
+			var resizeLocal = function () {
 				var r = window.screen_radius;
 				// We flip the y axis because mathematicians like the y axis up
 				// Then we flip both axes again to use position subtractively
@@ -220,7 +221,8 @@
 				if (window.options.n == 2) { movable.scaled_position[1] = 0; }
 				window.frame_manager.requestFrame();
 			};
-			$(window).on('resize', resizeAdjustment);
+			movable.motionCallback = resizeLocal;
+			$(window).on('resize', resizeTotal);
 			window.draw = draw;
 			// Activate the form
 			var replacement_form = new ActiveForm($('#form_config'));
