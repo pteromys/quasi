@@ -23,6 +23,7 @@ var FrameManager = function (callback) {
 	this.prev_time = NaN;
 	this.dt = this.DEFAULT_DT;
 	this.drawCallback = callback || function () {};
+	this.requestFrame = this.requestFrame.bind(this);
 	this.drawWrapper = this.drawWrapper.bind(this);
 };
 
