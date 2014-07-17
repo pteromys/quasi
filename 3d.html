@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<title>Quasicrystals</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="stylesheet" type="text/css" href="icons/webfont.css" />
+	<link rel="stylesheet" type="text/css" href="interface.css" />
+	<style type="text/css">
+		html, body { width: 100%; height: 100%; margin: 0px; padding: 0px; }
+		body { background: #000; }
+		canvas {
+			position: absolute;
+			top: 0px; left: 0px; bottom: 0px; right: 0px;
+		}
+		#config .box { text-align: center; }
+		.formline { margin: 0.5em -1em 0em; }
+		.formline .button { margin: 0em 0.25em; }
+	</style>
+	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+	<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+	<script type="text/javascript" src="heap.js"></script>
+	<script type="text/javascript" src="linear.js"></script>
+	<script type="text/javascript" src="motion.js"></script>
+	<script type="text/javascript" src="frames.js"></script>
+	<script type="text/javascript" src="interface.js"></script>
+	<script type="text/javascript" src="gl.js"></script>
+	<script type="text/javascript" src="icos.js"></script>
+	<script type="text/javascript">
+		// Constants
+		var EPSILON = 1e-9;
+
+		// Vertices in the quasi-lattice
+		var Vertex = function (indices) {
+			this.indices = indices.slice();
+			this.coords = M.mul(Icos.BASIS, indices);
+		};
+		Vertex.prototype = {
+			weight: function () {
+				var c = this.coords;
+				var x = c[0]*c[0] + c[1]*c[1] + c[2]*c[2];
+				var y = c[3]*c[3] + c[4]*c[4] + c[5]*c[5];
+				return (x + 1)*y;
+			},
+		};
+		var QuasiLattice3 = function () {
+			this.verts = [new Vertex(V.zero(6))];
+			this.border_verts = new Heap(this.verts, this.vertCmp);
+			this.vert_names = {'0 0 0 0 0 0': this.verts[0],};
+		};
+		QuasiLattice3.prototype = {
+			vertCmp: function (a, b) { return (a.weight() < b.weight()); },
+			addVerts: function (v, symmetric) {
+				if (!v) {
+					v = this.border_verts.pop();
+					if (!v) { return false; }
+				}
+				var adder;
+				if (symmetric) {
+					adder = this.addVertSymmetric.bind(this);
+				} else {
+					adder = this.addVert.bind(this);
+				}
+				var nv;
+				var c = this.verts.length;
+				for (var i = 0; i < 6; i++) {
+					nv = v.indices.slice();
+					nv[i] += 1;
+					adder(nv);
+					nv[i] -= 2;
+					adder(nv);
+				}
+				return this.verts.length - c;
+			},
+			addVertsByTransform: function (steps, limit) {
+				steps = steps || 1;
+				limit = limit || this.verts.length;
+				var t = Icos.M_EXPAND;
+				var ti = Icos.M_SHRINK;
+				for (var j = 0; j < steps; j++) {
+					for (var i = 0; i < limit; i++) {
+						this.addVert(M.mul(t, this.verts[i].indices));
+						this.addVert(M.mul(ti, this.verts[i].indices));
+					}
+					t = M.mulMats(Icos.M_EXPAND, t);
+					ti = M.mulMats(Icos.M_SHRINK, ti);
+				}
+			},
+			addVert: function (indices, symmetric) {
+				var name = indices.join(' ');
+				if (this.vert_names[name]) { return false; }
+				var nv = new Vertex(indices);
+				this.verts.push(nv);
+				this.vert_names[name] = nv;
+				if (!symmetric || Icos.isFundamental(nv.coords)) {
+					this.border_verts.push(nv);
+				}
+				return nv;
+			},
+			addVertSymmetric: function (indices) {
+				for (var i = 0; i < Icos.GROUP.length; i++) {
+					this.addVert(M.mul(Icos.GROUP[i], indices), true);
+				}
+			},
+		};
+
+		$(document).ready(function () {
+			// Init lattice
+			window.q = new QuasiLattice3();
+			//for (var i = 0; i < 40; i++) { q.addVerts(); }
+			q.addVerts(undefined, true);
+			q.addVerts(undefined, true);
+			q.addVerts(undefined, true);
+			q.addVerts(undefined, true);
+			q.addVertsByTransform(2);
+			var positions = new Float32Array(q.verts.length * 4);
+			var colors = new Float32Array(q.verts.length * 4);
+			for (var i = 0; i < q.verts.length; i++) {
+				positions[4*i] = q.verts[i].coords[0];
+				positions[4*i+1] = q.verts[i].coords[1];
+				positions[4*i+2] = q.verts[i].coords[2];
+				positions[4*i+3] = 1;
+				colors[4*i] = q.verts[i].coords[3];
+				colors[4*i+1] = q.verts[i].coords[4];
+				colors[4*i+2] = q.verts[i].coords[5];
+				colors[4*i+3] = 1;
+			}
+			// Motion
+			window.movable = new Movable();
+			window.movable.KEYS['A'] = 65;
+			window.movable.KEYS['Z'] = 90;
+			window.movable.keys_down[window.movable.KEYS['A']] = false;
+			window.movable.keys_down[window.movable.KEYS['Z']] = false;
+			movable.canAccelerate = function () {
+				return !($('.overlay').is(':target'));
+			};
+			movable.bindHandlers(window);
+			movable.scaled_position = [0, 0];
+			movable.moveReset = function () {
+				this.position[0] = this.position[1] = 0;
+				this.velocity[0] = this.velocity[1] = 0;
+			};
+			// Animation
+			var glc = new GLWrapper();
+			// I don't know where to put these yet
+			glc.angle_xz = 0;
+			glc.angle_zy = 0;
+			glc.radius = 10;
+			glc.scale = 1.0;
+			var MAX_SCALE = 2 + Math.sqrt(5);
+			// Set up
+			glc.setupState = function () {
+				var gl = this.gl;
+				gl.clearColor(0, 0, 0, 0);
+				gl.enable(gl.BLEND);
+				gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+				// Set up our cute vertex buffer consisting of a single square
+				this.vertex_buffer = gl.createBuffer();
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.vertex_buffer);
+				gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+				this.color_buffer = gl.createBuffer();
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.color_buffer);
+				gl.bufferData(gl.ARRAY_BUFFER, colors, gl.STATIC_DRAW);
+				// Resize
+				this.resize($(window).innerWidth(), $(window).innerHeight());
+			};
+			glc.resizeCallback = function (w, h) {
+				var ir = 1/Math.sqrt(w*w + h*h);
+				this.uPMatrix = this.projectionMatrix(ir*w, ir*h, 0.5, 1000);
+				window.frame_manager.requestFrame();
+			};
+			glc.draw = function (time_scheduled) {
+				var gl = glc.gl;
+				var prog = glc.shaders.stars;
+				window.movable.update(this.dt);
+				var zooming = false;
+				if (window.movable.keys_down[window.movable.KEYS['A']]) {
+					zooming = true;
+					glc.scale *= Math.exp(this.dt * 0.001);
+				}
+				if (window.movable.keys_down[window.movable.KEYS['Z']]) {
+					zooming = true;
+					glc.scale *= Math.exp(-this.dt * 0.001);
+				}
+				glc.scale = glc.scale || 1.0;
+				if (glc.scale > MAX_SCALE) {
+					glc.scale /= MAX_SCALE;
+				} else if (glc.scale < 1) {
+					glc.scale *= MAX_SCALE;
+				}
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				gl.useProgram(prog);
+				// Enable vertex buffers
+				gl.bindBuffer(gl.ARRAY_BUFFER, glc.vertex_buffer);
+				var pos = gl.getAttribLocation(prog, 'aVPosition');
+				gl.enableVertexAttribArray(pos);
+				gl.vertexAttribPointer(pos, 4, gl.FLOAT, false, 0, 0);
+				gl.bindBuffer(gl.ARRAY_BUFFER, glc.color_buffer);
+				var clr = gl.getAttribLocation(prog, 'aVColor');
+				gl.enableVertexAttribArray(clr);
+				gl.vertexAttribPointer(clr, 4, gl.FLOAT, false, 0, 0);
+				// Set uniforms
+				// Matrix entries by column left-to-right, down each column.
+				var cxz = Math.cos(glc.angle_xz);
+				var sxz = Math.sin(glc.angle_xz);
+				var czy = Math.cos(glc.angle_zy);
+				var szy = Math.sin(glc.angle_zy);
+				var uMVMatrix = new Float32Array([
+					cxz, -sxz * szy, -sxz * czy, 0,
+					0, czy, -szy, 0,
+					sxz, cxz * szy, cxz * czy, 0,
+					0, 0, -glc.radius, 1,
+				]);
+				gl.uniformMatrix4fv(
+					gl.getUniformLocation(prog, 'uPMatrix'),
+					false, glc.uPMatrix);
+				gl.uniformMatrix4fv(
+					gl.getUniformLocation(prog, 'uMVMatrix'),
+					false, uMVMatrix);
+				gl.uniform2f(gl.getUniformLocation(prog, 'uScale'), glc.scale, 1/glc.scale);
+				// Draw!
+				gl.drawArrays(gl.POINTS, 0, q.verts.length);
+				return zooming;
+			};
+			window.frame_manager = new FrameManager(glc.draw);
+			glc.addProgramByURLs('stars', 'vert.c', 'frag.c', function () {
+				glc.bindCanvas($('#main')[0]);
+			});
+			window.glc = glc;
+			movable.motionCallback = function () {
+				var w = $(window).width();
+				var h = $(window).height()/2;
+				movable.position[0] %= w;
+				movable.position[1] = Math.max(-h, Math.min(movable.position[1], h));
+				movable.scaled_position[0] = 2 * Math.PI * movable.position[0] / w;
+				movable.scaled_position[1] = 0.5 * Math.PI * movable.position[1] / h;
+				glc.angle_xz = -movable.scaled_position[0];
+				glc.angle_zy = movable.scaled_position[1];
+				window.frame_manager.requestFrame();
+			};
+			$(window).on('resize', function (e) {
+				glc.resize($(window).width(), $(window).height());
+			});
+		});
+	</script>
+</head>
+<body>
+	<canvas id="main" class="active">
+		<img src="quasi-thumbnail.png" alt="Preview" />
+		This demo requires HTML5 Canvas support.
+	</canvas>
+	<div id="config" class="overlay"><div class="box">
+		<h2>No options available</h2>
+		<form method="post" action="#" id="form_config"><div class="formline">
+			<a class="button icon button_close" title="Cancel" href="#">&times;</a>
+			<label for="config_n" class="icon">&#x21ba;</label>
+			<input type="text" class="numeric valid" id="config_n" name="n" value="5" />
+			<button type="submit" class="button icon"
+				id="config_submit" title="Redraw">&#x00bb;</button>
+		</div></form>
+	</div></div>
+	<div id="help" class="overlay">
+		<div class="box">
+			<a class="button icon button_close button_rightmargin"
+				title="Close" href="#">&times;</a>
+			<p>This page draws patterns reminiscient of quasicrystals
+			by projecting higher-dimensional lattices into the plane.
+			<p>Code written by <a href="http://pteromys.melonisland.net/">Pteromys</a>
+			and released under the <a href="http://unlicense.org/">Unlicense</a>.</p>
+		</div>
+	</div>
+	<a class="button icon button_root"
+		href="#help" id="button_help" title="Help">?</a>
+	<a class="button icon button_root"
+		href="#config" id="button_config" title="Settings">&#x2699;</a>
+</body>
+</html>
