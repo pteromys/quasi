@@ -1,4 +1,4 @@
-importScripts('heap.js');
+importScripts('heap.js', 'linear.js');
 
 // Global variables because I haven't figured out where to put them
 var options = {
@@ -13,58 +13,6 @@ var screen_state = {
 // Constants
 var EPSILON = 1e-9;
 
-// Vector and Matrix operations
-var V = {
-	dot: function (x, y) {
-		var ans = 0;
-		for (var i = Math.min(x.length, y.length) - 1; i >= 0; i--) {
-			ans += x[i] * y[i];
-		}
-		return ans;
-	},
-	scale: function (v, a) {
-		return v.map(function (x) { return x * a; });
-	},
-	add: function (x, y) {
-		var ans = new Array(Math.min(x.length, y.length));
-		for (var i = 0; i < ans.length; i++) {
-			ans[i] = x[i] + y[i];
-		}
-		return ans;
-	},
-	zero: function (n) {
-		var ans = new Array(n);
-		for (var i = 0; i < n; i++) { ans[i] = 0; }
-		return ans;
-	},
-	isZero: function (v) {
-		for (var i = 0; i < v.length; i++) {
-			if (v[i] != 0) {
-				return false;
-			}
-		}
-		return true;
-	},
-	rotate: function (v) {
-		if (!v.length) { return; }
-		var sw = v[0];
-		for (var i = 0; i < v.length - 1; i++) {
-			v[i] = v[i+1];
-		}
-		v[v.length - 1] = sw;
-	},
-};
-var M = {
-	mul: function (m, v) {
-		var ans = V.zero(m.length);
-		for (var i = 0; i < ans.length; i++) {
-			for (var j = 0; j < v.length; j++) {
-				ans[i] += m[i][j] * v[j];
-			}
-		}
-		return ans;
-	},
-};
 var Vertex = function (indices, quasilattice) {
 	this.lattice = quasilattice;
 	this.indices = indices.slice(); // Make a copy
