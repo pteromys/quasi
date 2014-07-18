@@ -27,6 +27,7 @@ var ICOS_BASIS = (function () {
 })();
 
 var Icos = {
+	EPSILON: 1e-9,
 	BASIS: ICOS_BASIS,
 	testBasisOrthogonality: function () {
 		// Self-test for orthogonality
@@ -44,9 +45,9 @@ var Icos = {
 	// attached to point 0, on edge 01, and in triangle 012.
 	isFundamental: function (coords) {
 		var dots = M.mul(this.BASIS, coords.slice(0,3));
-		return dots[2] > dots[5] &&
-			dots[1] > dots[2] &&
-			dots[0] > dots[1];
+		return dots[2] >= dots[5] - EPSILON &&
+			dots[1] >= dots[2] - EPSILON &&
+			dots[0] >= dots[1] - EPSILON;
 	},
 
 	// Two matrices acting on Z^6 which act by scaling with
