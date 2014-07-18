@@ -40,15 +40,44 @@
 			this.weight = this.r2 + this.d2;
 		};
 		var QuasiLattice3 = function () {
-			this.verts = [new Vertex(V.zero(6))];
-			this.border_verts = new Heap(this.verts, this.vertCmp);
-			this.vert_names = {'0 0 0 0 0 0': this.verts[0],};
-			this.directions = [this.verts[0]];
+			this.verts = [];
+			this.glData = [];
+			this.border_verts = new Heap([], this.vertCmp);
+			this.vert_names = {};
+			this.directions = [];
+			this.direction_threshold = Infinity;
+			this.addVertSymmetric([0,0,0,0,0,0]);
 			this.direction_threshold = Infinity;
 			this.addVertSymmetric([1,0,0,0,0,0]);
 		};
 		QuasiLattice3.prototype = {
-			vertCmp: function (a, b) { return (a.weight < b.weight); },
+			vertCmp: function (a, b) { return a.weight < b.weight; },
+			addVert: function (indices) {
+				var name = indices.join(' ');
+				if (this.vert_names[name]) { return false; }
+				var nv = new Vertex(indices);
+				this.verts.push(nv);
+				this.vert_names[name] = nv;
+				if (Icos.isFundamental(nv.coords)) {
+					this.border_verts.push(nv);
+				}
+				this.glData.push(nv.coords[0], nv.coords[1], nv.coords[2],
+					nv.coords[3], nv.coords[4], nv.coords[5]);
+				return nv;
+			},
+			addVertSymmetric: function (indices) {
+				var dt = this.direction_threshold;
+				for (var i = 0; i < Icos.GROUP.length; i++) {
+					var nv = this.addVert(M.mul(Icos.GROUP[i], indices));
+					if (nv) {
+						if (nv.d2 < dt + EPSILON) {
+							this.directions.push(nv);
+							this.direction_threshold = nv.d2;
+							new_direction = true;
+						}
+					}
+				}
+			},
 			addVerts: function (v) {
 				if (!v) {
 					v = this.border_verts.pop();
@@ -56,7 +85,7 @@
 				}
 				var nv;
 				var c = this.verts.length;
-				for (var i = 0; i < this.directions.length; i++) {
+				for (var i = 1; i < this.directions.length; i++) {
 					nv = V.add(v.indices, this.directions[i].indices);
 					this.addVertSymmetric(nv);
 				}
@@ -84,30 +113,6 @@
 					}
 				}
 			},
-			addVert: function (indices, symmetric) {
-				var name = indices.join(' ');
-				if (this.vert_names[name]) { return false; }
-				var nv = new Vertex(indices);
-				this.verts.push(nv);
-				this.vert_names[name] = nv;
-				if (!symmetric || Icos.isFundamental(nv.coords)) {
-					this.border_verts.push(nv);
-				}
-				return nv;
-			},
-			addVertSymmetric: function (indices) {
-				var dt = this.direction_threshold;
-				for (var i = 0; i < Icos.GROUP.length; i++) {
-					var nv = this.addVert(M.mul(Icos.GROUP[i], indices), true);
-					if (nv) {
-						if (nv.d2 < dt + EPSILON) {
-							this.directions.push(nv);
-							this.direction_threshold = nv.d2;
-							new_direction = true;
-						}
-					}
-				}
-			},
 		};
 
 		$(document).ready(function () {
@@ -118,18 +123,6 @@
 				//q.addVertsByTransform(2);
 			}
 			q.addVertsByTransform(2);
-			var positions = new Float32Array(q.verts.length * 4);
-			var colors = new Float32Array(q.verts.length * 4);
-			for (var i = 0; i < q.verts.length; i++) {
-				positions[4*i] = q.verts[i].coords[0];
-				positions[4*i+1] = q.verts[i].coords[1];
-				positions[4*i+2] = q.verts[i].coords[2];
-				positions[4*i+3] = 1;
-				colors[4*i] = q.verts[i].coords[3];
-				colors[4*i+1] = q.verts[i].coords[4];
-				colors[4*i+2] = q.verts[i].coords[5];
-				colors[4*i+3] = 1;
-			}
 			// Motion
 			window.movable = new Movable();
 			window.movable.velocity_keys[1] = [window.movable.KEYS.DOWN, window.movable.KEYS.UP];
@@ -162,13 +155,10 @@
 				gl.clearColor(0, 0, 0, 0);
 				gl.enable(gl.BLEND);
 				gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-				// Set up our cute vertex buffer consisting of a single square
+				// Upload data
 				this.vertex_buffer = gl.createBuffer();
 				gl.bindBuffer(gl.ARRAY_BUFFER, this.vertex_buffer);
-				gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
-				this.color_buffer = gl.createBuffer();
-				gl.bindBuffer(gl.ARRAY_BUFFER, this.color_buffer);
-				gl.bufferData(gl.ARRAY_BUFFER, colors, gl.STATIC_DRAW);
+				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(q.glData), gl.STATIC_DRAW);
 				// Resize
 				this.resize($(window).innerWidth(), $(window).innerHeight());
 			};
@@ -187,11 +177,10 @@
 				gl.bindBuffer(gl.ARRAY_BUFFER, glc.vertex_buffer);
 				var pos = gl.getAttribLocation(prog, 'aVPosition');
 				gl.enableVertexAttribArray(pos);
-				gl.vertexAttribPointer(pos, 4, gl.FLOAT, false, 0, 0);
-				gl.bindBuffer(gl.ARRAY_BUFFER, glc.color_buffer);
+				gl.vertexAttribPointer(pos, 3, gl.FLOAT, false, 24, 0);
 				var clr = gl.getAttribLocation(prog, 'aVColor');
 				gl.enableVertexAttribArray(clr);
-				gl.vertexAttribPointer(clr, 4, gl.FLOAT, false, 0, 0);
+				gl.vertexAttribPointer(clr, 3, gl.FLOAT, false, 24, 12);
 				// Set uniforms
 				// Matrix entries by column left-to-right, down each column.
 				gl.uniformMatrix4fv(

@@ -1,5 +1,5 @@
-attribute vec4 aVPosition;
-attribute vec4 aVColor;
+attribute vec3 aVPosition;
+attribute vec3 aVColor;
 
 uniform mat4 uPMatrix;
 uniform mediump vec3 uOrigin;
@@ -12,8 +12,8 @@ varying mediump float vFog;
 
 void main(void) {
 	// Transform
-	gl_Position = uPMatrix * vec4((aVPosition.xyz + uOrigin) * uScale.x, 1.0);
-	vColor = (aVColor.xyz + uOriginColor) * uScale.y;
+	gl_Position = uPMatrix * vec4((aVPosition + uOrigin) * uScale.x, 1.0);
+	vColor = (aVColor + uOriginColor) * uScale.y;
 	// Set paint parameters
 	gl_PointSize = 80.0 * exp(-0.25 * dot(vColor, vColor) / 0.4) / gl_Position.w;
 	vFog = clamp(uFog.x/gl_Position.w - uFog.y, 0.0, 1.0);
