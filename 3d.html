@@ -136,13 +136,23 @@
 			movable.moveResetSuper = window.movable.moveReset;
 			movable.moveReset = function () {
 				this.moveResetSuper();
-				this.angle_xz = 0;
-				this.angle_zy = 0;
 				this.radius = 2;
 				this.scale = 1.0;
 				this.uOrigin = [0, 0, 0];
 				this.uOriginColor = [0, 0, 0];
 				this.uFog = [10, -1];
+				this.uMVMatrix = [
+					[1,0,0,0],
+					[0,1,0,0],
+					[0,0,1,0],
+					[0,0,0,1]
+				];
+				this.uBTMatrix = [
+					[1,0,0,0],
+					[0,1,0,0],
+					[0,0,1,-this.radius],
+					[0,0,0,1]
+				];
 			};
 			movable.moveReset();
 			// Animation
@@ -163,7 +173,8 @@
 				this.resize($(window).innerWidth(), $(window).innerHeight());
 			};
 			glc.resizeCallback = function (w, h) {
-				var ir = 1.5/Math.sqrt(w*w + h*h);
+				this.screen_radius = Math.sqrt(w*w + h*h);
+				var ir = 1.5/this.screen_radius;
 				this.uPMatrix = M.fromGL4(this.projectionMatrix(ir*w, ir*h, 0.1, 1000));
 				window.frame_manager.requestFrame();
 			};
@@ -187,8 +198,8 @@
 					gl.getUniformLocation(prog, 'uPMatrix'),
 					false, M.toGL4(
 						M.mulMats(glc.uPMatrix,
-						M.mulMats(glc.uBTMatrix,
-							glc.uMVMatrix))
+						M.mulMats(window.movable.uBTMatrix,
+							window.movable.uMVMatrix))
 					));
 				gl.uniform2f(gl.getUniformLocation(prog, 'uScale'), window.movable.scale, 1/window.movable.scale);
 				gl.uniform2fv(gl.getUniformLocation(prog, 'uFog'),
@@ -203,43 +214,26 @@
 			window.frame_manager = new FrameManager(glc.draw);
 			glc.addProgramByURLs('stars', 'vert.c', 'frag.c', function () {
 				glc.bindCanvas($('#main')[0]);
-				glc.updateMatrices();
 			});
 			window.glc = glc;
-			glc.updateMatrices = function () {
-				var w = $(window).width();
-				var h = $(window).height()/2;
-				movable.position[0] %= w;
-				movable.position[1] = Math.max(-h, Math.min(movable.position[1], h));
-				movable.scaled_position[0] = 2 * Math.PI * movable.position[0] / w;
-				movable.scaled_position[1] = 0.5 * Math.PI * movable.position[1] / h;
-				movable.angle_xz = movable.scaled_position[0];
-				movable.angle_zy = -movable.scaled_position[1];
-				var cxz = Math.cos(movable.angle_xz);
-				var sxz = Math.sin(movable.angle_xz);
-				var czy = Math.cos(movable.angle_zy);
-				var szy = Math.sin(movable.angle_zy);
-				glc.uMVMatrix = [
+			movable.move = function (dt) {
+				// Rotation
+				var yaw = 2 * Math.PI * this.velocity[0] * dt / glc.screen_radius;
+				var pitch = -2 * Math.PI * this.velocity[1] * dt / glc.screen_radius;
+				var cxz = Math.cos(yaw);
+				var sxz = Math.sin(yaw);
+				var czy = Math.cos(pitch);
+				var szy = Math.sin(pitch);
+				this.uMVMatrix = M.mulMats([
 					[cxz,        0,    sxz,       0],
 					[-sxz * szy, czy,  cxz * szy, 0],
 					[-sxz * czy, -szy, cxz * czy, 0], // -movable.radius,
 					[0,          0,    0,         1],
-				];
-				glc.uBTMatrix = [
-					[1,0,0,0],
-					[0,1,0,0],
-					[0,0,1,-window.movable.radius],
-					[0,0,0,1]
-				];
-			};
-			movable.moveSuper = movable.move;
-			movable.move = function (dt) {
-				// Shift positions
-				this.moveSuper(dt);
+				], this.uMVMatrix);
 				// Translation
 				if (this.velocity[2]) {
 					this.uOrigin = V.add(
-						M.mul(M.transpose(glc.uMVMatrix),
+						M.mul(M.transpose(this.uMVMatrix),
 							[0, 0, dt * this.velocity[2] * 0.01 / this.scale]),
 						this.uOrigin);
 				}
@@ -284,7 +278,6 @@
 				this.uOriginColor = V.add(dir.coords.slice(3,6), this.uOriginColor);
 			};
 			movable.motionCallback = function () {
-				glc.updateMatrices();
 				window.frame_manager.requestFrame();
 			};
 			$(window).on('resize', function (e) {
