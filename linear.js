@@ -79,4 +79,25 @@ var M = {
 		}
 		return ans;
 	},
+	toGL4: function (m) {
+		var k = 0;
+		var ans = new Float32Array(16);
+		for (var i = 0; i < 4; i++) {
+			for (var j = 0; j < 4; j++) {
+				ans[k] = m[j][i];
+				k++;
+			}
+		}
+		return ans;
+	},
+	fromGL4: function (m) {
+		var ans = new Array(4);
+		for (var i = 0; i < 4; i++) {
+			ans[i] = V.zero(4);
+			for (var j = 0; j < 4; j++) {
+				ans[i][j] = m[i + 4*j];
+			}
+		}
+		return ans;
+	},
 };
