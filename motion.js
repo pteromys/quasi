@@ -1,5 +1,9 @@
 var Movable = function () {
 	this.velocity = [0, 0];
+	this.velocity_keys = [ // [decrease, increase]
+		['LEFT', 'RIGHT'],
+		['UP', 'DOWN'],
+	];
 	this.keys_down = {
 		"16": false,
 		"37": false,
@@ -50,10 +54,15 @@ Movable.prototype = {
 			return Math.max(-vmax, Math.min(t, vmax));
 		};
 		if (this.canAccelerate()) {
-			if (this.keys_down[this.KEYS.UP]) { this.velocity[1] -= dv; }
-			if (this.keys_down[this.KEYS.DOWN]) { this.velocity[1] += dv; }
-			if (this.keys_down[this.KEYS.LEFT]) { this.velocity[0] -= dv; }
-			if (this.keys_down[this.KEYS.RIGHT]) { this.velocity[0] += dv; }
+			for (var i = 0; i < this.velocity_keys.length; i++) {
+				this.velocity[i] = this.velocity[i] || 0;
+				if (this.keys_down[this.KEYS[this.velocity_keys[i][0]]]) {
+					this.velocity[i] -= dv;
+				}
+				if (this.keys_down[this.KEYS[this.velocity_keys[i][1]]]) {
+					this.velocity[i] += dv;
+				}
+			}
 		}
 		this.velocity = this.velocity.map(clampAndDecay);
 	},
@@ -66,11 +75,12 @@ Movable.prototype = {
 		}
 	},
 	isMoving: function () {
-		return (this.velocity[0] || this.velocity[1] ||
-			this.keys_down[this.KEYS.UP] ||
-			this.keys_down[this.KEYS.DOWN] ||
-			this.keys_down[this.KEYS.LEFT] ||
-			this.keys_down[this.KEYS.RIGHT]);
+		for (var i = 0; i < this.velocity_keys.length; i++) {
+			if (this.velocity[i]) { return true; }
+			if (this.keys_down[this.KEYS[this.velocity_keys[i][0]]]) { return true; }
+			if (this.keys_down[this.KEYS[this.velocity_keys[i][1]]]) { return true; }
+		}
+		return false;
 	},
 	bindHandlers: function (element) {
 		var t = this;
@@ -177,12 +187,15 @@ Movable.prototype = {
 		return true;
 	},
 	move: function (dt) {
-		this.position[0] += movable.velocity[0] * dt;
-		this.position[1] += movable.velocity[1] * dt;
+		for (var i = 0; i < this.velocity.length; i++) {
+			this.position[i] = this.position[i] || 0;
+			this.position[i] += this.velocity[i] * dt;
+		}
 	},
 	moveReset: function () {
-		this.position[0] = this.position[1] = 0;
-		this.velocity[0] = this.velocity[1] = 0;
+		for (var i = 0; i < this.velocity.length; i++) {
+			this.position[i] = this.velocity[i] = 0;
+		}
 	},
 	moveFromTo: function (a, b) {
 		this.position[0] += this.last_motion[0] = a[0] - b[0];
