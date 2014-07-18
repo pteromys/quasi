@@ -160,7 +160,7 @@
 			// I don't know where to put these yet
 			var MAX_SCALE = 2 + Math.sqrt(5);
 			// Set up
-			glc.setupState = function () {
+			glc.setupCallback = function () {
 				var gl = this.gl;
 				gl.clearColor(0, 0, 0, 0);
 				gl.enable(gl.BLEND);
