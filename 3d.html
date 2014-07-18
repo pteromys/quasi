@@ -13,6 +13,11 @@
 			top: 0px; left: 0px; bottom: 0px; right: 0px;
 		}
 		#config .box { text-align: center; }
+		.box {
+			background: rgba(15, 15, 15, 0.9);
+			box-shadow: 0em 0em 2em 0em rgba(255, 255, 255, 0.5);
+		}
+		h2 { text-align: center; }
 		.formline { margin: 0.5em -1em 0em; }
 		.formline .button { margin: 0em 0.25em; }
 	</style>
@@ -305,10 +310,112 @@
 		<div class="box">
 			<a class="button icon button_close button_rightmargin"
 				title="Close" href="#">&times;</a>
-			<p>This page draws patterns reminiscient of quasicrystals
-			by projecting higher-dimensional lattices into the plane.
+			<p>This page draws the icosahedral 3-dimensional
+			<a href="http://en.wikipedia.org/wiki/Quasicrystal"
+				>quasicrystal</a>: a thin 3-D slice of a 6-D
+			<a href="http://en.wikipedia.org/wiki/Lattice_(group)"
+				>lattice</a> with
+			<a href="http://en.wikipedia.org/wiki/Icosahedral_symmetry"
+				>icosahedral symmetry</a>. Points are sized by
+			their proximity to the slice and colored
+			by how far they extend into the 3 unrepresented dimensions
+			(<span style="color: #fcc;">red</span>,
+			<span style="color: #cfc;">green</span>, and
+			<span style="color: #ccf;">blue</span>).</p>
+			<p>This quasicrystal has two curious properties:
+			<ol>
+				<li><a href="#help_uniqueness">It's the only 3-D lattice slice
+					which is truly 3-D</a>&mdash;all others with any symmetry
+					merely repeat a 2-D pattern.</li>
+				<li><a href="#help_selfsimilarity">It's self-similar</a>&mdash;a
+					zoomed-in view is indistinguishable from a zoomed-out view.</li>
+			</ol></p>
+			<p>The controls are as follows.
+			<ul>
+				<li>Turning: arrow keys, mouse dragging, or two-finger swipe.</li>
+				<li>Zooming: "+" and "-", mouse scrolling, or pinch zoom.</li>
+				<li>Fly around: spacebar and backspace, shift-click, or one-finger swipe.</li>
+			</ul></p>
 			<p>Code written by <a href="http://pteromys.melonisland.net/">Pteromys</a>
 			and released under the <a href="http://unlicense.org/">Unlicense</a>.</p>
+		</div>
+	</div>
+	<div id="help_selfsimilarity" class="overlay">
+		<div class="box">
+			<a class="button icon button_close button_leftmargin"
+				title="Back" href="#help">&laquo;</a>
+			<a class="button icon button_close button_rightmargin"
+				title="Close" href="#">&times;</a>
+			<h2>Self-similarity</h2>
+			<p>Zooming in expands space by some scale factor \(s\).
+			This spreads out the dots, but we can compensate
+			by shrinking the unseen 3 dimensions to make more dots
+			touch our slice.
+			To keep the number of dots roughly constant,
+			let's shrink the unseen dimensions by \(s\).</p>
+			<p>If \(s = 2 + \sqrt{5}\), then a miracle occurs: all dots
+			land on other dots, and it's like we never zoomed in at all.
+			To see why this happens we're going to need to describe the 6-D
+			lattice in more detail:</p>
+			<p>If \(\zeta\) is the 5th
+			<a href="http://en.wikipedia.org/wiki/Root_of_unity">root of unity</a>
+			\(e^{2\pi i/5}\), then \(\sqrt{5} = 1 + 2(\zeta + \zeta^{-1})\),
+			and the points in
+			\(\mathbf{R} \times \mathbf{C} \times \mathbf{R} \times \mathbf{C}\)
+			named by
+				\[ (1, 0, 1, 0), \\
+				\left(\frac{1}{\sqrt{5}}, \frac{2\zeta^k}{\sqrt{5}},
+				-\frac{1}{\sqrt{5}}, -\frac{2\zeta^{2k}}{\sqrt{5}}\right) \]
+			(with \(k\) going from \(0\) to \(4\))
+			form the basis of a lattice (you can check with
+			<a href="http://en.wikipedia.org/wiki/Dot_product">dot products</a>
+			that they're mutually perpendicular).</p>
+			<p>The last two coordinates are obtained from the first two
+			by replacing \(\zeta\) with the
+			<a href="http://en.wikipedia.org/wiki/Conjugate_element_(field_theory)"
+			>algebraically indistinguishable</a>
+			\(\zeta^2\), which also replaces \(\sqrt{5}\) by \(-\sqrt{5}\).</p>
+			<p>Taking only the first two coordinates yields 6 vertices
+			of an icosahedron; and scaling by \(2 + \sqrt{5}\)
+			amounts to replacing each vertex with the sum of
+			twice itself and its five neighbors&mdash;thus taking dots
+			to other dots.
+			This replacement scheme is reflected in the last two coordinates
+			as scaling by \(2 - \sqrt{5}\); and we were able to reach this
+			state of affairs by zooming because
+				\[ (2 + \sqrt{5})(2 - \sqrt{5}) = -1 . \]
+			</p>
+		</div>
+	</div>
+	<div id="help_uniqueness" class="overlay">
+		<div class="box">
+			<a class="button icon button_close button_leftmargin"
+				title="Back" href="#help">&laquo;</a>
+			<a class="button icon button_close button_rightmargin"
+				title="Close" href="#">&times;</a>
+			<h2>Uniqueness</h2>
+			<p>What we're looking for is a group of symmetries \(G\)
+			of a higher-dimensional lattice \(\mathbf{Z}^n \subset \mathbf{R}^n\),
+			along with a 3-plane \(V \subset \mathbf{R}^n\) (the slice)
+			on which \(G\) acts irreducibly (the non-2-D condition,
+			which amounts to not having an axis).</p>
+			<p>Of the <a
+				href="http://en.wikipedia.org/wiki/Point_groups_in_three_dimensions#The_seven_remaining_point_groups"
+				>seven non-axial point groups in 3 dimensions</a>,
+			only the two icosahedral groups don't already
+			preserve an ordinary 3-D lattice. These are the
+			<a href="http://en.wikipedia.org/wiki/Alternating_group"
+				>alternating group</a> \(A_5\) and the product
+			\(A_5 \times \{\pm 1\}\); so it suffices to find
+			<a href="http://groupprops.subwiki.org/wiki/Linear_representation_theory_of_alternating_group:A5"
+				>a list of representations</a>
+			of \(A_5\) over integers and real numbers.</p>
+			<p>(One detail remains: \(A_5\) might only
+			be the quotient of \(G\) by a normal subgroup \(N\).
+			Fortunately, the map
+				\[ x \mapsto \sum_{g \in N} gx \]
+			is an endomorphism of \(\mathbf{Z}^n\)
+			on whose image \(A_5\) acts.)</p>
 		</div>
 	</div>
 	<a class="button icon button_root"
