@@ -1,8 +1,10 @@
+var Movable = (function () {
+
 var Movable = function () {
 	this.velocity = [0, 0];
 	this.velocity_keys = [ // [decrease, increase]
-		['LEFT', 'RIGHT'],
-		['UP', 'DOWN'],
+		[this.KEYS.LEFT, this.KEYS.RIGHT],
+		[this.KEYS.UP, this.KEYS.DOWN],
 	];
 	this.keys_down = {
 		"16": false,
@@ -34,6 +36,11 @@ Movable.prototype = {
 		"UP": 38,
 		"RIGHT": 39,
 		"DOWN": 40,
+		"<": 188,
+		">": 190,
+		"QUESTION": 191,
+		"TILDE": 192,
+		"APOSTROPHE": 222,
 	},
 	DOUBLETAP_THRESHOLD: 300,
 	TAP_MOVE_THRESHOLD: 16,
@@ -56,10 +63,10 @@ Movable.prototype = {
 		if (this.canAccelerate()) {
 			for (var i = 0; i < this.velocity_keys.length; i++) {
 				this.velocity[i] = this.velocity[i] || 0;
-				if (this.keys_down[this.KEYS[this.velocity_keys[i][0]]]) {
+				if (this.keys_down[this.velocity_keys[i][0]]) {
 					this.velocity[i] -= dv;
 				}
-				if (this.keys_down[this.KEYS[this.velocity_keys[i][1]]]) {
+				if (this.keys_down[this.velocity_keys[i][1]]) {
 					this.velocity[i] += dv;
 				}
 			}
@@ -77,15 +84,18 @@ Movable.prototype = {
 	isMoving: function () {
 		for (var i = 0; i < this.velocity_keys.length; i++) {
 			if (this.velocity[i]) { return true; }
-			if (this.keys_down[this.KEYS[this.velocity_keys[i][0]]]) { return true; }
-			if (this.keys_down[this.KEYS[this.velocity_keys[i][1]]]) { return true; }
+			if (this.keys_down[this.velocity_keys[i][0]]) { return true; }
+			if (this.keys_down[this.velocity_keys[i][1]]) { return true; }
 		}
 		return false;
 	},
 	bindHandlers: function (element) {
 		var t = this;
 		var press = function (e) {
-			if (typeof(t.keys_down[e.which]) != 'undefined') {
+			function hasKey(a) {
+				return (a[0] == e.which || a[1] == e.which);
+			}
+			if (t.velocity_keys.some(hasKey)) {
 				t.keys_down[e.which] = true;
 				t.motionCallback();
 			}
@@ -96,9 +106,7 @@ Movable.prototype = {
 			}
 		};
 		var release = function (e) {
-			if (typeof(t.keys_down[e.which]) != 'undefined') {
-				t.keys_down[e.which] = false;
-			}
+			if (t.keys_down[e.which]) { t.keys_down[e.which] = false; }
 			t.keys_down[t.KEYS.SHIFT] = e.shiftKey;
 		};
 		var releaseAll = function (e) {
@@ -210,4 +218,19 @@ Movable.prototype = {
 		}
 	},
 	motionCallback: function () {},
+};
+
+/* Add letters, numbers, and F keys */
+for (var i = 0; i < 10; i++) {
+	Movable.prototype.KEYS[i] = 48 + i;
 }
+for (var i = 65; i < 91; i++) {
+	Movable.prototype.KEYS[String.fromCharCode(i)] = i;
+}
+for (var i = 1; i < 13; i++) {
+	Movable.prototype.KEYS["F" + i] = 111 + i;
+}
+
+return Movable;
+
+})();

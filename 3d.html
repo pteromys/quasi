@@ -132,17 +132,9 @@
 			}
 			// Motion
 			window.movable = new Movable();
-			window.movable.KEYS['A'] = 65;
-			window.movable.KEYS['Z'] = 90;
-			window.movable.KEYS['W'] = 87;
-			window.movable.KEYS['S'] = 83;
-			window.movable.keys_down[window.movable.KEYS['A']] = false;
-			window.movable.keys_down[window.movable.KEYS['Z']] = false;
-			window.movable.keys_down[window.movable.KEYS['W']] = false;
-			window.movable.keys_down[window.movable.KEYS['S']] = false;
-			window.movable.velocity_keys[1] = ['DOWN', 'UP'];
-			window.movable.velocity_keys[2] = ['S', 'W'];
-			window.movable.velocity_keys[3] = ['Z', 'A'];
+			window.movable.velocity_keys[1] = [window.movable.KEYS.DOWN, window.movable.KEYS.UP];
+			window.movable.velocity_keys[2] = [window.movable.KEYS.S, window.movable.KEYS.W];
+			window.movable.velocity_keys[3] = [window.movable.KEYS.Z, window.movable.KEYS.A];
 			movable.canAccelerate = function () {
 				return !($('.overlay').is(':target'));
 			};
