@@ -33,56 +33,55 @@
 		var Vertex = function (indices) {
 			this.indices = indices.slice();
 			this.coords = M.mul(Icos.BASIS, indices);
-		};
-		Vertex.prototype = {
-			weight: function () {
-				var c = this.coords;
-				var x = c[0]*c[0] + c[1]*c[1] + c[2]*c[2];
-				var y = c[3]*c[3] + c[4]*c[4] + c[5]*c[5];
-				return (x + 1)*y;
-			},
+			this.is_fundamental = Icos.isFundamental(this.coords);
+			var c = this.coords;
+			this.r2 = c[0]*c[0] + c[1]*c[1] + c[2]*c[2];
+			this.d2 = c[3]*c[3] + c[4]*c[4] + c[5]*c[5];
+			this.weight = this.r2 + this.d2;
 		};
 		var QuasiLattice3 = function () {
 			this.verts = [new Vertex(V.zero(6))];
 			this.border_verts = new Heap(this.verts, this.vertCmp);
 			this.vert_names = {'0 0 0 0 0 0': this.verts[0],};
+			this.directions = [this.verts[0]];
+			this.direction_threshold = Infinity;
+			this.addVertSymmetric([1,0,0,0,0,0]);
 		};
 		QuasiLattice3.prototype = {
-			vertCmp: function (a, b) { return (a.weight() < b.weight()); },
-			addVerts: function (v, symmetric) {
+			vertCmp: function (a, b) { return (a.weight < b.weight); },
+			addVerts: function (v) {
 				if (!v) {
 					v = this.border_verts.pop();
 					if (!v) { return false; }
 				}
-				var adder;
-				if (symmetric) {
-					adder = this.addVertSymmetric.bind(this);
-				} else {
-					adder = this.addVert.bind(this);
-				}
 				var nv;
 				var c = this.verts.length;
-				for (var i = 0; i < 6; i++) {
-					nv = v.indices.slice();
-					nv[i] += 1;
-					adder(nv);
-					nv[i] -= 2;
-					adder(nv);
+				for (var i = 0; i < this.directions.length; i++) {
+					nv = V.add(v.indices, this.directions[i].indices);
+					this.addVertSymmetric(nv);
 				}
 				return this.verts.length - c;
 			},
 			addVertsByTransform: function (steps, limit) {
 				steps = steps || 1;
 				limit = limit || this.verts.length;
+				// Set up matrices to transform by
 				var t = Icos.M_EXPAND;
 				var ti = Icos.M_SHRINK;
-				for (var j = 0; j < steps; j++) {
-					for (var i = 0; i < limit; i++) {
-						this.addVert(M.mul(t, this.verts[i].indices));
-						this.addVert(M.mul(ti, this.verts[i].indices));
-					}
+				var mats = [];
+				for (var j = 1; j < steps; j++) {
+					mats.push(t);
+					mats.push(ti);
 					t = M.mulMats(Icos.M_EXPAND, t);
 					ti = M.mulMats(Icos.M_SHRINK, ti);
+				}
+				// Add verts
+				for (var i = 0; i < limit; i++) {
+					if (this.verts[i].is_fundamental) {
+						for (var j = 0; j < mats.length; j++) {
+							this.addVertSymmetric(M.mul(mats[j], this.verts[i].indices));
+						}
+					}
 				}
 			},
 			addVert: function (indices, symmetric) {
@@ -97,8 +96,16 @@
 				return nv;
 			},
 			addVertSymmetric: function (indices) {
+				var dt = this.direction_threshold;
 				for (var i = 0; i < Icos.GROUP.length; i++) {
-					this.addVert(M.mul(Icos.GROUP[i], indices), true);
+					var nv = this.addVert(M.mul(Icos.GROUP[i], indices), true);
+					if (nv) {
+						if (nv.d2 < dt + EPSILON) {
+							this.directions.push(nv);
+							this.direction_threshold = nv.d2;
+							new_direction = true;
+						}
+					}
 				}
 			},
 		};
@@ -106,11 +113,10 @@
 		$(document).ready(function () {
 			// Init lattice
 			window.q = new QuasiLattice3();
-			//for (var i = 0; i < 40; i++) { q.addVerts(); }
-			q.addVerts(undefined, true);
-			q.addVerts(undefined, true);
-			q.addVerts(undefined, true);
-			q.addVerts(undefined, true);
+			for (var i = 0; i < 35; i++) {
+				q.addVerts();
+				//q.addVertsByTransform(2);
+			}
 			q.addVertsByTransform(2);
 			var positions = new Float32Array(q.verts.length * 4);
 			var colors = new Float32Array(q.verts.length * 4);
@@ -128,24 +134,35 @@
 			window.movable = new Movable();
 			window.movable.KEYS['A'] = 65;
 			window.movable.KEYS['Z'] = 90;
+			window.movable.KEYS['W'] = 87;
+			window.movable.KEYS['S'] = 83;
 			window.movable.keys_down[window.movable.KEYS['A']] = false;
 			window.movable.keys_down[window.movable.KEYS['Z']] = false;
+			window.movable.keys_down[window.movable.KEYS['W']] = false;
+			window.movable.keys_down[window.movable.KEYS['S']] = false;
+			window.movable.velocity_keys[1] = ['DOWN', 'UP'];
+			window.movable.velocity_keys[2] = ['S', 'W'];
+			window.movable.velocity_keys[3] = ['Z', 'A'];
 			movable.canAccelerate = function () {
 				return !($('.overlay').is(':target'));
 			};
 			movable.bindHandlers(window);
 			movable.scaled_position = [0, 0];
+			movable.moveResetSuper = window.movable.moveReset;
 			movable.moveReset = function () {
-				this.position[0] = this.position[1] = 0;
-				this.velocity[0] = this.velocity[1] = 0;
+				this.moveResetSuper();
+				this.angle_xz = 0;
+				this.angle_zy = 0;
+				this.radius = 2;
+				this.scale = 1.0;
+				this.uOrigin = [0, 0, 0];
+				this.uOriginColor = [0, 0, 0];
+				this.uFog = [10, -1];
 			};
+			movable.moveReset();
 			// Animation
 			var glc = new GLWrapper();
 			// I don't know where to put these yet
-			glc.angle_xz = 0;
-			glc.angle_zy = 0;
-			glc.radius = 10;
-			glc.scale = 1.0;
 			var MAX_SCALE = 2 + Math.sqrt(5);
 			// Set up
 			glc.setupState = function () {
@@ -164,29 +181,14 @@
 				this.resize($(window).innerWidth(), $(window).innerHeight());
 			};
 			glc.resizeCallback = function (w, h) {
-				var ir = 1/Math.sqrt(w*w + h*h);
-				this.uPMatrix = this.projectionMatrix(ir*w, ir*h, 0.5, 1000);
+				var ir = 1.5/Math.sqrt(w*w + h*h);
+				this.uPMatrix = M.fromGL4(this.projectionMatrix(ir*w, ir*h, 0.1, 1000));
 				window.frame_manager.requestFrame();
 			};
 			glc.draw = function (time_scheduled) {
 				var gl = glc.gl;
 				var prog = glc.shaders.stars;
 				window.movable.update(this.dt);
-				var zooming = false;
-				if (window.movable.keys_down[window.movable.KEYS['A']]) {
-					zooming = true;
-					glc.scale *= Math.exp(this.dt * 0.001);
-				}
-				if (window.movable.keys_down[window.movable.KEYS['Z']]) {
-					zooming = true;
-					glc.scale *= Math.exp(-this.dt * 0.001);
-				}
-				glc.scale = glc.scale || 1.0;
-				if (glc.scale > MAX_SCALE) {
-					glc.scale /= MAX_SCALE;
-				} else if (glc.scale < 1) {
-					glc.scale *= MAX_SCALE;
-				}
 				gl.clear(gl.COLOR_BUFFER_BIT);
 				gl.useProgram(prog);
 				// Enable vertex buffers
@@ -200,41 +202,108 @@
 				gl.vertexAttribPointer(clr, 4, gl.FLOAT, false, 0, 0);
 				// Set uniforms
 				// Matrix entries by column left-to-right, down each column.
-				var cxz = Math.cos(glc.angle_xz);
-				var sxz = Math.sin(glc.angle_xz);
-				var czy = Math.cos(glc.angle_zy);
-				var szy = Math.sin(glc.angle_zy);
-				var uMVMatrix = new Float32Array([
-					cxz, -sxz * szy, -sxz * czy, 0,
-					0, czy, -szy, 0,
-					sxz, cxz * szy, cxz * czy, 0,
-					0, 0, -glc.radius, 1,
-				]);
 				gl.uniformMatrix4fv(
 					gl.getUniformLocation(prog, 'uPMatrix'),
-					false, glc.uPMatrix);
-				gl.uniformMatrix4fv(
-					gl.getUniformLocation(prog, 'uMVMatrix'),
-					false, uMVMatrix);
-				gl.uniform2f(gl.getUniformLocation(prog, 'uScale'), glc.scale, 1/glc.scale);
+					false, M.toGL4(
+						M.mulMats(glc.uPMatrix,
+						M.mulMats(glc.uBTMatrix,
+							glc.uMVMatrix))
+					));
+				gl.uniform2f(gl.getUniformLocation(prog, 'uScale'), window.movable.scale, 1/window.movable.scale);
+				gl.uniform2fv(gl.getUniformLocation(prog, 'uFog'),
+					new Float32Array(window.movable.uFog));
+				gl.uniform3fv(gl.getUniformLocation(prog, 'uOrigin'),
+					new Float32Array(window.movable.uOrigin));
+				gl.uniform3fv(gl.getUniformLocation(prog, 'uOriginColor'),
+					new Float32Array(window.movable.uOriginColor));
 				// Draw!
 				gl.drawArrays(gl.POINTS, 0, q.verts.length);
-				return zooming;
 			};
 			window.frame_manager = new FrameManager(glc.draw);
 			glc.addProgramByURLs('stars', 'vert.c', 'frag.c', function () {
 				glc.bindCanvas($('#main')[0]);
+				glc.updateMatrices();
 			});
 			window.glc = glc;
-			movable.motionCallback = function () {
+			glc.updateMatrices = function () {
 				var w = $(window).width();
 				var h = $(window).height()/2;
 				movable.position[0] %= w;
 				movable.position[1] = Math.max(-h, Math.min(movable.position[1], h));
 				movable.scaled_position[0] = 2 * Math.PI * movable.position[0] / w;
 				movable.scaled_position[1] = 0.5 * Math.PI * movable.position[1] / h;
-				glc.angle_xz = -movable.scaled_position[0];
-				glc.angle_zy = movable.scaled_position[1];
+				movable.angle_xz = movable.scaled_position[0];
+				movable.angle_zy = -movable.scaled_position[1];
+				var cxz = Math.cos(movable.angle_xz);
+				var sxz = Math.sin(movable.angle_xz);
+				var czy = Math.cos(movable.angle_zy);
+				var szy = Math.sin(movable.angle_zy);
+				glc.uMVMatrix = [
+					[cxz,        0,    sxz,       0],
+					[-sxz * szy, czy,  cxz * szy, 0],
+					[-sxz * czy, -szy, cxz * czy, 0], // -movable.radius,
+					[0,          0,    0,         1],
+				];
+				glc.uBTMatrix = [
+					[1,0,0,0],
+					[0,1,0,0],
+					[0,0,1,-window.movable.radius],
+					[0,0,0,1]
+				];
+			};
+			movable.moveSuper = movable.move;
+			movable.move = function (dt) {
+				// Shift positions
+				this.moveSuper(dt);
+				// Translation
+				if (this.velocity[2]) {
+					this.uOrigin = V.add(
+						M.mul(M.transpose(glc.uMVMatrix),
+							[0, 0, dt * this.velocity[2] * 0.01 / this.scale]),
+						this.uOrigin);
+				}
+				// Zooming
+				this.scale = this.scale || 1.0;
+				if (this.velocity[3]) {
+					this.scale *= Math.exp(dt * this.velocity[3] * 0.002);
+				}
+				var s2 = this.scale * this.scale;
+				if (s2 > MAX_SCALE) {
+					this.scale /= MAX_SCALE;
+					this.uOrigin = V.scale(this.uOrigin, MAX_SCALE);
+					this.uOriginColor = V.scale(this.uOriginColor, -1/MAX_SCALE);
+				} else if (s2 * MAX_SCALE < 1) {
+					this.scale *= MAX_SCALE;
+					this.uOrigin = V.scale(this.uOrigin, 1/MAX_SCALE);
+					this.uOriginColor = V.scale(this.uOriginColor, -MAX_SCALE);
+				}
+				// Recentering
+				window.bleh = function (x, y) {
+					return x + y;
+				}
+				var s2 = this.scale * this.scale;
+				function dirNiceness(v) {
+					var x = V.add(v.coords.slice(0,3), window.movable.uOrigin);
+					var y = V.add(v.coords.slice(3,6), window.movable.uOriginColor);
+					x = V.dot(x, x) * s2;
+					y = V.dot(y, y) / s2;
+					return window.bleh(x,y);
+				}
+				var new_niceness = Infinity;
+				var niceness = Infinity;
+				var dir = q.directions[0];
+				for (var i = 0; i < q.directions.length; i++) {
+					new_niceness = dirNiceness(q.directions[i]);
+					if (new_niceness < niceness) {
+						dir = q.directions[i];
+						niceness = new_niceness;
+					}
+				}
+				this.uOrigin = V.add(dir.coords.slice(0,3), this.uOrigin);
+				this.uOriginColor = V.add(dir.coords.slice(3,6), this.uOriginColor);
+			};
+			movable.motionCallback = function () {
+				glc.updateMatrices();
 				window.frame_manager.requestFrame();
 			};
 			$(window).on('resize', function (e) {
