@@ -122,8 +122,12 @@ var ButtonSystem = {
 			}
 		});
 	},
-	activateKeys: function () {
+	activateKeys: function (bindings) {
 		var t = this;
+		bindings = bindings || {
+			32: '#button_config',
+			191: '#button_help',
+		};
 		$(window).on('keydown', function (e) {
 			if ($('.overlay').is(':target')) {
 				if (e.which == t.KEYS.ESC) {
@@ -135,10 +139,8 @@ var ButtonSystem = {
 					}, 10);
 				}
 			} else {
-				if (e.which == t.KEYS.SPACE) {
-					clickElement($('#button_config'));
-				} else if (e.which == t.KEYS.QUESTION && e.shiftKey) {
-					clickElement($('#button_help'));
+				if (bindings[e.which]) {
+					clickElement($(bindings[e.which]));
 				}
 			}
 		});
@@ -146,7 +148,6 @@ var ButtonSystem = {
 };
 ButtonSystem.activateKeys = ButtonSystem.activateKeys.bind(ButtonSystem);
 $(document).ready(ButtonSystem.activateRootButtons);
-$(document).ready(ButtonSystem.activateKeys);
 
 return ButtonSystem;
 })();

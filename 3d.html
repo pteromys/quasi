@@ -121,6 +121,8 @@
 		};
 
 		$(document).ready(function () {
+			// Init buttons
+			ButtonSystem.activateKeys({191: '#button_help'});
 			// Init lattice
 			window.q = new QuasiLattice3();
 			for (var i = 0; i < 35; i++) {

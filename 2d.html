@@ -99,6 +99,7 @@
 		window.screen_radius = 1000;
 		window.options = {n: 5, r: 5};
 		$(document).ready(function () {
+			ButtonSystem.activateKeys();
 			var t_0 = null;
 			window.movable = new Movable();
 			movable.canAccelerate = function () {
