@@ -23,6 +23,7 @@
 	</style>
 	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
 	<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+	<script type="text/javascript" src="hammer.min.js"></script>
 	<script type="text/javascript" src="heap.js"></script>
 	<script type="text/javascript" src="linear.js"></script>
 	<script type="text/javascript" src="motion.js"></script>
@@ -120,28 +121,16 @@
 			},
 		};
 
-		$(document).ready(function () {
-			// Init buttons
-			ButtonSystem.activateKeys({191: '#button_help'});
-			// Init lattice
-			window.q = new QuasiLattice3();
-			for (var i = 0; i < 35; i++) {
-				q.addVerts();
-				//q.addVertsByTransform(2);
-			}
-			q.addVertsByTransform(2);
-			// Motion
-			window.movable = new Movable();
-			window.movable.velocity_keys[1] = [window.movable.KEYS.DOWN, window.movable.KEYS.UP];
-			window.movable.velocity_keys[2] = [window.movable.KEYS.S, window.movable.KEYS.W];
-			window.movable.velocity_keys[3] = [window.movable.KEYS.Z, window.movable.KEYS.A];
-			movable.canAccelerate = function () {
+		var setupMovable = function () {
+			var m = new Movable();
+			m.velocity_keys[1] = [m.KEYS.DOWN, m.KEYS.UP]; // invert y-axis
+			m.velocity_keys[2] = [m.KEYS.Z, m.KEYS.SPACE]; // flying around
+			m.velocity_keys[3] = [189, 187]; // minus and plus
+			m.canAccelerate = function () {
 				return !($('.overlay').is(':target'));
 			};
-			movable.bindHandlers(window);
-			movable.scaled_position = [0, 0];
-			movable.moveResetSuper = window.movable.moveReset;
-			movable.moveReset = function () {
+			m.moveResetSuper = m.moveReset;
+			m.moveReset = function () {
 				this.moveResetSuper();
 				this.radius = 2;
 				this.scale = 1.0;
@@ -161,11 +150,163 @@
 					[0,0,0,1]
 				];
 			};
-			movable.moveReset();
+			m.moveTurn = function (yaw, pitch, roll) {
+				yaw = yaw || 0;
+				pitch = pitch || 0;
+				roll = roll || 0;
+				var cxz = Math.cos(yaw);
+				var sxz = Math.sin(yaw);
+				var czy = Math.cos(pitch);
+				var szy = Math.sin(pitch);
+				var cxy = Math.cos(roll);
+				var sxy = Math.sin(roll);
+				this.uMVMatrix = M.mulMats(M.mulMats([
+						[cxy, sxy, 0, 0],
+						[-sxy, cxy,  0, 0],
+						[0,   0,    1, 0],
+						[0,   0,    0, 1],
+					], [
+						[cxz,        0,    sxz,       0],
+						[-sxz * szy, czy,  cxz * szy, 0],
+						[-sxz * czy, -szy, cxz * czy, 0], // -this.radius,
+						[0,          0,    0,         1],
+				]), this.uMVMatrix);
+			};
+			m.moveFly = function (distance) {
+				this.uOrigin = V.add(
+					M.mul(M.transpose(this.uMVMatrix),
+						[0, 0, distance / this.scale]),
+					this.uOrigin);
+			};
+			m.moveZoom = function (amount) {
+				this.scale = this.scale || 1.0;
+				this.scale *= amount;
+			};
+			m.MAX_SCALE = 2 + Math.sqrt(5);
+			m.moveAdjust = function () {
+				// Rezooming
+				var s2 = this.scale * this.scale;
+				if (s2 > this.MAX_SCALE) {
+					this.scale /= this.MAX_SCALE;
+					this.uOrigin = V.scale(this.uOrigin, this.MAX_SCALE);
+					this.uOriginColor = V.scale(this.uOriginColor, -1/this.MAX_SCALE);
+				} else if (s2 * this.MAX_SCALE < 1) {
+					this.scale *= this.MAX_SCALE;
+					this.uOrigin = V.scale(this.uOrigin, 1/this.MAX_SCALE);
+					this.uOriginColor = V.scale(this.uOriginColor, -this.MAX_SCALE);
+				}
+				// Recentering
+				s2 = this.scale * this.scale;
+				function dirNiceness(v) {
+					var x = V.add(v.coords.slice(0,3), m.uOrigin);
+					var y = V.add(v.coords.slice(3,6), m.uOriginColor);
+					x = V.dot(x, x) * s2;
+					y = V.dot(y, y) / s2;
+					return m.bleh(x,y);
+				}
+				m.bleh = function (x, y) {
+					return x + y;
+				}
+				var new_niceness = Infinity;
+				var niceness = Infinity;
+				var dir = q.directions[0];
+				for (var i = 0; i < q.directions.length; i++) {
+					new_niceness = dirNiceness(q.directions[i]);
+					if (new_niceness < niceness) {
+						dir = q.directions[i];
+						niceness = new_niceness;
+					}
+				}
+				this.uOrigin = V.add(dir.coords.slice(0,3), this.uOrigin);
+				this.uOriginColor = V.add(dir.coords.slice(3,6), this.uOriginColor);
+			};
+			m.move = function (dt) {
+				// Rotation
+				var yaw = 2 * Math.PI * this.velocity[0] * dt / this.screen_radius;
+				var pitch = -2 * Math.PI * this.velocity[1] * dt / this.screen_radius;
+				this.moveTurn(yaw, pitch);
+				// Translation
+				if (this.velocity[2]) {
+					this.moveFly(dt * this.velocity[2] * 0.005);
+				}
+				// Zooming
+				if (this.velocity[3]) {
+					this.moveZoom(Math.exp(dt * this.velocity[3] * 0.002));
+				}
+			};
+			m.moveReset();
+			var getLast = function () {
+				if (!h.session.movableLastParams) {
+					h.session.movableLastParams = {
+						deltaX: 0,
+						deltaY: 0,
+						rotation: 0,
+						scale: 1,
+						pointers: -1,
+					};
+				}
+				return h.session.movableLastParams;
+			};
+			var h = new Hammer.Manager($('#main')[0]);
+			h.add(new Hammer.Pan({threshold: 0, pointers: 0}));
+			h.add(new Hammer.Rotate({threshold: 0}).recognizeWith(h.get('pan')));
+			h.add(new Hammer.Pinch({threshold: 0}).recognizeWith([h.get('pan'), h.get('rotate')]));
+			h.on('pan pinch rotate', function (e) {
+				var last = getLast();
+				var radius = 0;
+				// Avoid sudden jumps when a finger is added or removed
+				if (last.pointers == e.pointers.length) {
+					// Rotation
+					var yaw = 0;
+					var pitch = 0;
+					var roll = 0;
+					if (e.pointers.length > 1 || e.pointerType == 'mouse') {
+						yaw = -1.5 * (e.deltaX - last.deltaX) / m.screen_radius;
+						pitch = 1.5 * (e.deltaY - last.deltaY) / m.screen_radius;
+						roll = ((540 + e.rotation - last.rotation) % 360 - 180) * Math.PI / 180;
+						// Inhibit sudden 180-degree flip if fingers get swapped
+						if (!(Math.abs(roll) < 1.5)) { roll = 0; }
+						m.moveTurn(yaw, pitch, roll);
+					} else {
+						// Translation
+						var x = $(window).width() / 2 - e.center.x;
+						var y = $(window).height() / 2 - e.center.y;
+						radius = Math.sqrt(x*x + y*y);
+						m.moveFly(5 * (radius - last.radius) / m.screen_radius);
+					}
+					// Zooming
+					var s = e.scale/last.scale;
+					if (!(s > 0.1 && s < 10)) { s = 1; }
+					m.moveZoom(s);
+				}
+				// Save data for next time
+				last.deltaX = e.deltaX;
+				last.deltaY = e.deltaY;
+				last.rotation = e.rotation;
+				last.scale = e.scale;
+				last.pointers = e.pointers.length;
+				last.radius = radius
+				m.motionCallback();
+			});
+			m.hammer = h;
+			m.bindHandlers(window);
+			$(window).off('.mMouse');
+			return m;
+		};
+
+		$(document).ready(function () {
+			// Init buttons
+			ButtonSystem.activateKeys({191: '#button_help'});
+			// Init lattice
+			window.q = new QuasiLattice3();
+			for (var i = 0; i < 5; i++) {
+				q.addVerts();
+			}
+			q.addVertsByTransform(2);
+			// Motion
+			window.movable = setupMovable();
 			// Animation
 			var glc = new GLWrapper();
-			// I don't know where to put these yet
-			var MAX_SCALE = 2 + Math.sqrt(5);
 			// Set up
 			glc.setupCallback = function () {
 				var gl = this.gl;
@@ -180,7 +321,7 @@
 				this.resize($(window).innerWidth(), $(window).innerHeight());
 			};
 			glc.resizeCallback = function (w, h) {
-				this.screen_radius = Math.sqrt(w*w + h*h);
+				window.movable.screen_radius = this.screen_radius = Math.sqrt(w*w + h*h);
 				var ir = 1.5/this.screen_radius;
 				this.uPMatrix = M.fromGL4(this.projectionMatrix(ir*w, ir*h, 0.1, 1000));
 				window.frame_manager.requestFrame();
@@ -189,6 +330,7 @@
 				var gl = glc.gl;
 				var prog = glc.shaders.stars;
 				window.movable.update(this.dt);
+				window.movable.moveAdjust();
 				gl.clear(gl.COLOR_BUFFER_BIT);
 				gl.useProgram(prog);
 				// Enable vertex buffers
@@ -208,7 +350,8 @@
 						M.mulMats(window.movable.uBTMatrix,
 							window.movable.uMVMatrix))
 					));
-				gl.uniform2f(gl.getUniformLocation(prog, 'uScale'), window.movable.scale, 1/window.movable.scale);
+				gl.uniform2f(gl.getUniformLocation(prog, 'uScale'),
+					window.movable.scale, 1/window.movable.scale);
 				gl.uniform2fv(gl.getUniformLocation(prog, 'uFog'),
 					new Float32Array(window.movable.uFog));
 				gl.uniform3fv(gl.getUniformLocation(prog, 'uOrigin'),
@@ -223,68 +366,7 @@
 				glc.bindCanvas($('#main')[0]);
 			});
 			window.glc = glc;
-			movable.move = function (dt) {
-				// Rotation
-				var yaw = 2 * Math.PI * this.velocity[0] * dt / glc.screen_radius;
-				var pitch = -2 * Math.PI * this.velocity[1] * dt / glc.screen_radius;
-				var cxz = Math.cos(yaw);
-				var sxz = Math.sin(yaw);
-				var czy = Math.cos(pitch);
-				var szy = Math.sin(pitch);
-				this.uMVMatrix = M.mulMats([
-					[cxz,        0,    sxz,       0],
-					[-sxz * szy, czy,  cxz * szy, 0],
-					[-sxz * czy, -szy, cxz * czy, 0], // -movable.radius,
-					[0,          0,    0,         1],
-				], this.uMVMatrix);
-				// Translation
-				if (this.velocity[2]) {
-					this.uOrigin = V.add(
-						M.mul(M.transpose(this.uMVMatrix),
-							[0, 0, dt * this.velocity[2] * 0.01 / this.scale]),
-						this.uOrigin);
-				}
-				// Zooming
-				this.scale = this.scale || 1.0;
-				if (this.velocity[3]) {
-					this.scale *= Math.exp(dt * this.velocity[3] * 0.002);
-				}
-				var s2 = this.scale * this.scale;
-				if (s2 > MAX_SCALE) {
-					this.scale /= MAX_SCALE;
-					this.uOrigin = V.scale(this.uOrigin, MAX_SCALE);
-					this.uOriginColor = V.scale(this.uOriginColor, -1/MAX_SCALE);
-				} else if (s2 * MAX_SCALE < 1) {
-					this.scale *= MAX_SCALE;
-					this.uOrigin = V.scale(this.uOrigin, 1/MAX_SCALE);
-					this.uOriginColor = V.scale(this.uOriginColor, -MAX_SCALE);
-				}
-				// Recentering
-				window.bleh = function (x, y) {
-					return x + y;
-				}
-				var s2 = this.scale * this.scale;
-				function dirNiceness(v) {
-					var x = V.add(v.coords.slice(0,3), window.movable.uOrigin);
-					var y = V.add(v.coords.slice(3,6), window.movable.uOriginColor);
-					x = V.dot(x, x) * s2;
-					y = V.dot(y, y) / s2;
-					return window.bleh(x,y);
-				}
-				var new_niceness = Infinity;
-				var niceness = Infinity;
-				var dir = q.directions[0];
-				for (var i = 0; i < q.directions.length; i++) {
-					new_niceness = dirNiceness(q.directions[i]);
-					if (new_niceness < niceness) {
-						dir = q.directions[i];
-						niceness = new_niceness;
-					}
-				}
-				this.uOrigin = V.add(dir.coords.slice(0,3), this.uOrigin);
-				this.uOriginColor = V.add(dir.coords.slice(3,6), this.uOriginColor);
-			};
-			movable.motionCallback = function () {
+			window.movable.motionCallback = function () {
 				window.frame_manager.requestFrame();
 			};
 			$(window).on('resize', function (e) {
