@@ -126,6 +126,8 @@
 			m.velocity_keys[1] = [m.KEYS.DOWN, m.KEYS.UP]; // invert y-axis
 			m.velocity_keys[2] = [m.KEYS.Z, m.KEYS.SPACE]; // flying around
 			m.velocity_keys[3] = [189, 187]; // minus and plus
+			m.velocity_keys[4] = [173, 61]; // gecko minus and plus
+			m.velocity_keys[5] = [109, 107]; // possibly older gecko
 			m.canAccelerate = function () {
 				return !($('.overlay').is(':target'));
 			};
@@ -230,8 +232,9 @@
 					this.moveFly(dt * this.velocity[2] * 0.005);
 				}
 				// Zooming
-				if (this.velocity[3]) {
-					this.moveZoom(Math.exp(dt * this.velocity[3] * 0.002));
+				var vzoom = this.velocity[3] + this.velocity[4] + this.velocity[5];
+				if (vzoom) {
+					this.moveZoom(Math.exp(dt * vzoom * 0.002));
 				}
 			};
 			m.moveReset();
