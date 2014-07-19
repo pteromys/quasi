@@ -182,12 +182,12 @@ Movable.prototype = {
 			t.motionCallback();
 		};
 		element = $(element);
-		element.on('keydown', press);
-		element.on('keyup', release);
-		element.on('blur mouseleave', releaseAll);
-		element.on('mousedown touchstart', mousePress);
-		element.on('blur mouseup mouseleave touchend touchcancel', mouseRelease);
-		element.on('mousemove touchmove', mouseMove);
+		element.on('keydown.mKeyboard', press);
+		element.on('keyup.mKeyboard', release);
+		element.on('blur.mKeyboard mouseleave.mKeyboard', releaseAll);
+		element.on('mousedown.mMouse touchstart.mMouse', mousePress);
+		element.on('blur.mMouse mouseup.mMouse mouseleave.mMouse touchend.mMouse touchcancel.mMouse', mouseRelease);
+		element.on('mousemove.mMouse touchmove.mMouse', mouseMove);
 	},
 
 	// Default implementation
