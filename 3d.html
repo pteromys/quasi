@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-	<title>Quasicrystals</title>
+	<title>Quasicrystal 3D</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" type="text/css" href="icons/webfont.css" />
 	<link rel="stylesheet" type="text/css" href="interface.css" />
@@ -18,6 +18,7 @@
 			box-shadow: 0em 0em 2em 0em rgba(255, 255, 255, 0.5);
 		}
 		h2 { text-align: center; }
+		#help h2 { text-align: left; }
 		.formline { margin: 0.5em -1em 0em; }
 		.formline .button { margin: 0em 0.25em; }
 	</style>
@@ -414,7 +415,7 @@
 	</script>
 </head>
 <body>
-	<canvas id="main" class="active">
+	<canvas id="main">
 		<img src="quasi-thumbnail.png" alt="Preview" />
 		This demo requires HTML5 Canvas support.
 	</canvas>
@@ -432,6 +433,7 @@
 		<div class="box">
 			<a class="button icon button_close button_rightmargin"
 				title="Close" href="#">&times;</a>
+			<h2>About</h2>
 			<p>This page draws the icosahedral 3-dimensional
 			<a href="http://en.wikipedia.org/wiki/Quasicrystal"
 				>quasicrystal</a>: a thin 3-D slice of a 6-D
@@ -454,9 +456,9 @@
 			</ol></p>
 			<p>The controls are as follows.
 			<ul>
-				<li>Turning: arrow keys, mouse dragging, or two-finger swipe.</li>
-				<li>Zooming: "+" and "-", mouse scrolling, or pinch zoom.</li>
-				<li>Fly around: spacebar and backspace, shift-click, or one-finger swipe.</li>
+				<li>Turn: arrow keys, mouse dragging, or two-finger swipe.</li>
+				<li>Zoom: "+" and "-", mouse scrolling, or pinch zoom.</li>
+				<li>Fly: spacebar and backspace, shift-click, or one-finger swipe.</li>
 			</ul></p>
 			<p>Code written by <a href="http://pteromys.melonisland.net/">Pteromys</a>
 			and released under the <a href="http://unlicense.org/">Unlicense</a>.</p>
@@ -464,54 +466,54 @@
 	</div>
 	<div id="help_selfsimilarity" class="overlay">
 		<div class="box">
-			<a class="button icon button_close button_leftmargin"
+			<a class="button icon button_leftmargin"
 				title="Back" href="#help">&laquo;</a>
 			<a class="button icon button_close button_rightmargin"
 				title="Close" href="#">&times;</a>
 			<h2>Self-similarity</h2>
-			<p>Zooming in expands space by some scale factor \(s\).
-			This spreads out the dots, but we can compensate
-			by shrinking the unseen 3 dimensions to make more dots
-			touch our slice.
-			To keep the number of dots roughly constant,
-			let's shrink the unseen dimensions by \(s\).</p>
-			<p>If \(s = 2 + \sqrt{5}\), then a miracle occurs: all dots
-			land on other dots, and it's like we never zoomed in at all.
-			To see why this happens we're going to need to describe the 6-D
-			lattice in more detail:</p>
-			<p>If \(\zeta\) is the 5th
-			<a href="http://en.wikipedia.org/wiki/Root_of_unity">root of unity</a>
-			\(e^{2\pi i/5}\), then \(\sqrt{5} = 1 + 2(\zeta + \zeta^{-1})\),
-			and the points in
-			\(\mathbf{R} \times \mathbf{C} \times \mathbf{R} \times \mathbf{C}\)
-			named by
-				\[ (1, 0, 1, 0), \\
-				\left(\frac{1}{\sqrt{5}}, \frac{2\zeta^k}{\sqrt{5}},
-				-\frac{1}{\sqrt{5}}, -\frac{2\zeta^{2k}}{\sqrt{5}}\right) \]
-			(with \(k\) going from \(0\) to \(4\))
-			form the basis of a lattice (you can check with
-			<a href="http://en.wikipedia.org/wiki/Dot_product">dot products</a>
-			that they're mutually perpendicular).</p>
-			<p>The last two coordinates are obtained from the first two
-			by replacing \(\zeta\) with the
+			<p>Zooming in expands space by some factor \(s\).
+			To compensate for the spreading out of dots,
+			we'll make more dots touch our slice
+			by scaling the unseen 3 dimensions by
+			\(\frac{1}{s}\) (to keep the number of dots
+			drawn roughly constant).</p>
+			<p>If \(s = 2 + \sqrt{5}\), a miracle occurs: all dots
+			land on other dots, and it's as if we never zoomed in.
+			To understand why, we need to describe the 6-D
+			lattice in more detail.</p>
+			<p>Let \(\zeta\) be the 5th
+			<a href="http://en.wikipedia.org/wiki/Root_of_unity"
+				>root of unity</a> \(e^{2\pi i/5}\).
+			In \(\mathbf{R} \times \mathbf{C}\), the points
+				\[ \pm(\sqrt{5}, 0), \pm(1, 2\zeta^k) \]
+			(\(k = 0\) to \(4\)) are the twelve vertices of an icosahedron,
+			and their sums are the dots we see.
+			The unseen 3 dimensions are
+			a second set of \(\mathbf{R} \times \mathbf{C}\)
+			coordinates that replace \(\zeta\) with the
 			<a href="http://en.wikipedia.org/wiki/Conjugate_element_(field_theory)"
-			>algebraically indistinguishable</a>
-			\(\zeta^2\), which also replaces \(\sqrt{5}\) by \(-\sqrt{5}\).</p>
-			<p>Taking only the first two coordinates yields 6 vertices
-			of an icosahedron; and scaling by \(2 + \sqrt{5}\)
+				>algebraically indistinguishable</a> \(\zeta^2\).
+			As \(\sqrt{5} = 1 + 2(\zeta + \zeta^{-1})\), this also ends up
+			replacing \(\sqrt{5}\) by \(-\sqrt{5}\).
+			You can check using
+			<a href="http://en.wikipedia.org/wiki/Dot_product">dot products</a>
+			that the twelve vertices now point in six perpendicular directions
+			in the 6-D combined coordinate system.</p>
+			<p>Scaling by \(2 + \sqrt{5}\) in the first two coordinates
 			amounts to replacing each vertex with the sum of
 			twice itself and its five neighbors&mdash;thus taking dots
 			to other dots.
-			This replacement scheme is reflected in the last two coordinates
-			as scaling by \(2 - \sqrt{5}\); and we were able to reach this
-			state of affairs by zooming because
+			In the last two coordinates, this becomes scaling by \(2 - \sqrt{5}\),
+			and the miracle stems from the fact that
 				\[ (2 + \sqrt{5})(2 - \sqrt{5}) = -1 . \]
+			That is, this scaling is what we'd obtain with a zoom factor
+			of \(2 + \sqrt{5}\).
 			</p>
 		</div>
 	</div>
 	<div id="help_uniqueness" class="overlay">
 		<div class="box">
-			<a class="button icon button_close button_leftmargin"
+			<a class="button icon button_leftmargin"
 				title="Back" href="#help">&laquo;</a>
 			<a class="button icon button_close button_rightmargin"
 				title="Close" href="#">&times;</a>
