@@ -25,103 +25,12 @@
 	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
 	<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
 	<script type="text/javascript" src="hammer.min.js"></script>
-	<script type="text/javascript" src="heap.js"></script>
 	<script type="text/javascript" src="linear.js"></script>
 	<script type="text/javascript" src="motion.js"></script>
 	<script type="text/javascript" src="frames.js"></script>
 	<script type="text/javascript" src="interface.js"></script>
 	<script type="text/javascript" src="gl.js"></script>
-	<script type="text/javascript" src="icos.js"></script>
 	<script type="text/javascript">
-		// Constants
-		var EPSILON = 1e-9;
-
-		// Vertices in the quasi-lattice
-		var Vertex = function (indices) {
-			this.indices = indices.slice();
-			this.coords = M.mul(Icos.BASIS, indices);
-			this.is_fundamental = Icos.isFundamental(this.coords);
-			var c = this.coords;
-			this.r2 = c[0]*c[0] + c[1]*c[1] + c[2]*c[2];
-			this.d2 = c[3]*c[3] + c[4]*c[4] + c[5]*c[5];
-			this.weight = this.r2 + this.d2;
-		};
-		var QuasiLattice3 = function () {
-			this.verts = [];
-			this.glData = [];
-			this.border_verts = new Heap([], this.vertCmp);
-			this.vert_names = {};
-			this.directions = [];
-			this.direction_threshold = Infinity;
-			this.addVertSymmetric([0,0,0,0,0,0]);
-			this.direction_threshold = Infinity;
-			this.addVertSymmetric([1,0,0,0,0,0]);
-		};
-		QuasiLattice3.prototype = {
-			vertCmp: function (a, b) { return a.weight < b.weight; },
-			addVert: function (indices) {
-				var name = indices.join(' ');
-				if (this.vert_names[name]) { return false; }
-				var nv = new Vertex(indices);
-				this.verts.push(nv);
-				this.vert_names[name] = nv;
-				if (Icos.isFundamental(nv.coords)) {
-					this.border_verts.push(nv);
-				}
-				this.glData.push(nv.coords[0], nv.coords[1], nv.coords[2],
-					nv.coords[3], nv.coords[4], nv.coords[5]);
-				return nv;
-			},
-			addVertSymmetric: function (indices) {
-				var dt = this.direction_threshold;
-				for (var i = 0; i < Icos.GROUP.length; i++) {
-					var nv = this.addVert(M.mul(Icos.GROUP[i], indices));
-					if (nv) {
-						if (nv.d2 < dt + EPSILON) {
-							this.directions.push(nv);
-							this.direction_threshold = nv.d2;
-							new_direction = true;
-						}
-					}
-				}
-			},
-			addVerts: function (v) {
-				if (!v) {
-					v = this.border_verts.pop();
-					if (!v) { return false; }
-				}
-				var nv;
-				var c = this.verts.length;
-				for (var i = 1; i < this.directions.length; i++) {
-					nv = V.add(v.indices, this.directions[i].indices);
-					this.addVertSymmetric(nv);
-				}
-				return this.verts.length - c;
-			},
-			addVertsByTransform: function (steps, limit) {
-				steps = steps || 1;
-				limit = limit || this.verts.length;
-				// Set up matrices to transform by
-				var t = Icos.M_EXPAND;
-				var ti = Icos.M_SHRINK;
-				var mats = [];
-				for (var j = 1; j < steps; j++) {
-					mats.push(t);
-					mats.push(ti);
-					t = M.mulMats(Icos.M_EXPAND, t);
-					ti = M.mulMats(Icos.M_SHRINK, ti);
-				}
-				// Add verts
-				for (var i = 0; i < limit; i++) {
-					if (this.verts[i].is_fundamental) {
-						for (var j = 0; j < mats.length; j++) {
-							this.addVertSymmetric(M.mul(mats[j], this.verts[i].indices));
-						}
-					}
-				}
-			},
-		};
-
 		var setupMovable = function () {
 			var m = new Movable();
 			m.velocity_keys[1] = [m.KEYS.DOWN, m.KEYS.UP]; // invert y-axis
@@ -194,6 +103,7 @@
 				this.scale *= amount;
 			};
 			m.MAX_SCALE = 2 + Math.sqrt(5);
+			m.reCenter = function () {};
 			m.moveAdjust = function () {
 				// Rezooming
 				var s2 = this.scale * this.scale;
@@ -207,29 +117,7 @@
 					this.uOriginColor = V.scale(this.uOriginColor, -this.MAX_SCALE);
 				}
 				// Recentering
-				s2 = this.scale * this.scale;
-				function dirNiceness(v) {
-					var x = V.add(v.coords.slice(0,3), m.uOrigin);
-					var y = V.add(v.coords.slice(3,6), m.uOriginColor);
-					x = V.dot(x, x) * s2;
-					y = V.dot(y, y) / s2;
-					return m.bleh(x,y);
-				}
-				m.bleh = function (x, y) {
-					return x + y;
-				}
-				var new_niceness = Infinity;
-				var niceness = Infinity;
-				var dir = q.directions[0];
-				for (var i = 0; i < q.directions.length; i++) {
-					new_niceness = dirNiceness(q.directions[i]);
-					if (new_niceness < niceness) {
-						dir = q.directions[i];
-						niceness = new_niceness;
-					}
-				}
-				this.uOrigin = V.add(dir.coords.slice(0,3), this.uOrigin);
-				this.uOriginColor = V.add(dir.coords.slice(3,6), this.uOriginColor);
+				this.reCenter();
 			};
 			m.move = function (dt) {
 				// Rotation
@@ -290,10 +178,14 @@
 						m.moveZoom(s);
 						// Set coasting velocities averaging over the last 100ms
 						var inertia = Math.max(0, 1 - 0.01 * dt);
-						m.velocity[0] = inertia * m.velocity[0] + (1 - inertia) * yaw / (dt * 0.003);
-						m.velocity[1] = inertia * m.velocity[1] - (1 - inertia) * pitch / (dt * 0.003);
-						m.velocity[7] = inertia * m.velocity[7] + (1 - inertia) * roll / (dt * 0.003);
-						m.velocity[3] = inertia * m.velocity[3] + (1 - inertia) * (s - 1) / (dt * 0.002);
+						m.velocity[0] = inertia * m.velocity[0] +
+							(1 - inertia) * yaw / (dt * 0.003);
+						m.velocity[1] = inertia * m.velocity[1] -
+							(1 - inertia) * pitch / (dt * 0.003);
+						m.velocity[7] = inertia * m.velocity[7] +
+							(1 - inertia) * roll / (dt * 0.003);
+						m.velocity[3] = inertia * m.velocity[3] +
+							(1 - inertia) * (s - 1) / (dt * 0.002);
 					}
 				}
 				// Save data for next time
@@ -336,17 +228,21 @@
 		$(document).ready(function () {
 			// Init buttons
 			ButtonSystem.activateKeys({191: '#button_help'});
-			// Init lattice
-			window.q = new QuasiLattice3();
-			for (var i = 0; i < 35; i++) {
-				q.addVerts();
-			}
-			q.addVertsByTransform(2);
 			// Motion
 			window.movable = setupMovable();
 			// Animation
 			var glc = new GLWrapper();
 			// Set up
+			glc.glData = new Float32Array([0, 0, 0, 0, 0, 0]);
+			glc.num_verts = 1;
+			glc.updateData = function (num_verts, glData) {
+				var gl = this.gl;
+				this.num_verts = num_verts;
+				this.glData = glData;
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.vertex_buffer);
+				gl.bufferData(gl.ARRAY_BUFFER, this.glData, gl.STATIC_DRAW);
+				window.frame_manager.requestFrame();
+			};
 			glc.setupCallback = function () {
 				var gl = this.gl;
 				gl.clearColor(0, 0, 0, 0);
@@ -355,7 +251,7 @@
 				// Upload data
 				this.vertex_buffer = gl.createBuffer();
 				gl.bindBuffer(gl.ARRAY_BUFFER, this.vertex_buffer);
-				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(q.glData), gl.STATIC_DRAW);
+				gl.bufferData(gl.ARRAY_BUFFER, this.glData, gl.STATIC_DRAW);
 				// Resize
 				this.resize($(window).innerWidth(), $(window).innerHeight());
 			};
@@ -381,7 +277,6 @@
 				gl.enableVertexAttribArray(clr);
 				gl.vertexAttribPointer(clr, 3, gl.FLOAT, false, 24, 12);
 				// Set uniforms
-				// Matrix entries by column left-to-right, down each column.
 				gl.uniformMatrix4fv(
 					gl.getUniformLocation(prog, 'uPMatrix'),
 					false, M.toGL4(
@@ -398,7 +293,7 @@
 				gl.uniform3fv(gl.getUniformLocation(prog, 'uOriginColor'),
 					new Float32Array(window.movable.uOriginColor));
 				// Draw!
-				gl.drawArrays(gl.POINTS, 0, q.verts.length);
+				gl.drawArrays(gl.POINTS, 0, glc.num_verts);
 			};
 			window.frame_manager = new FrameManager(glc.draw);
 			glc.addProgramByURLs('stars', 'vert.c', 'frag.c', function () {
@@ -411,6 +306,32 @@
 			$(window).on('resize', function (e) {
 				glc.resize($(window).width(), $(window).height());
 			});
+			// Init lattice
+			window.lattice_worker = new Worker('quasilattice3.js');
+			window.lattice_worker.onmessage = function (e) {
+				var data = e.data;
+				if (data.type == 'update') {
+					glc.updateData(data.num_verts, data.glData);
+				} else if (data.type == 'translation') {
+					window.movable.uOrigin = V.add(
+						data.origin, window.movable.uOrigin);
+					window.movable.uOriginColor = V.add(
+						data.color, window.movable.uOriginColor);
+				} else {
+					// Show a message box...
+				}
+			};
+			window.movable.reCenter = function () {
+				if (this.disable_recentering) { return; }
+				window.lattice_worker.postMessage({
+					type: 'reCenter',
+					scale: this.scale,
+					origin: this.uOrigin,
+					color: this.uOriginColor,
+				});
+			};
+			window.lattice_worker.postMessage({type: 'addVerts', iterations: 10});
+			window.lattice_worker.postMessage({type: 'addVertsByTransform', grow: 2, shrink: 1});
 		});
 	</script>
 </head>
