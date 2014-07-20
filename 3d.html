@@ -314,7 +314,7 @@
 				m.decay_rate = m.decay_coast;
 				m.motionCallback();
 			});
-			$(window).on('wheel DOMMouseScroll mousewheel', function (e) {
+			$('#main').on('wheel DOMMouseScroll mousewheel', function (e) {
 				e = e.originalEvent;
 				var delta_y = e.wheelDelta || (-e.detail);
 				if (Math.abs(delta_y) > 20) { delta_y /= 120; }
