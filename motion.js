@@ -25,6 +25,7 @@ var Movable = function () {
 	this.position = [0, 0];
 	this.last_motion = [0, 0];
 	this.last_dt = this.default_dt;
+	this.decay_rate = this.decay_coast;
 };
 
 Movable.prototype = {
@@ -47,13 +48,15 @@ Movable.prototype = {
 	default_dt: 16,
 	v_walk: 0.5,
 	v_run: 2,
+	decay_coast: 0.002,
+	decay_brake: 0.01,
 
 	updateVelocity: function (dt) {
 		dt = dt || this.default_dt;
 		var vmax = this.v_walk;
 		if (this.keys_down[this.KEYS.SHIFT]) { vmax = this.v_run; }
 		var dv = 0.012 * vmax * dt;
-		var decay = 0.01 * vmax * dt;
+		var decay = this.decay_rate * vmax * dt;
 		var clampAndDecay = function (t) {
 			if (t < -decay) { t += decay; }
 			else if (t > decay) { t -= decay; }
@@ -97,11 +100,13 @@ Movable.prototype = {
 			}
 			if (t.velocity_keys.some(hasKey)) {
 				t.keys_down[e.which] = true;
+				t.decay_rate = t.decay_brake;
 				t.motionCallback();
 			}
 			t.keys_down[t.KEYS.SHIFT] = e.shiftKey;
 			if (e.which == t.KEYS.ESC && t.canAccelerate()) {
 				t.moveReset();
+				t.decay_rate = t.decay_brake;
 				t.motionCallback();
 			}
 		};
