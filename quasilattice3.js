@@ -12,6 +12,7 @@ var screen_state = {
 
 // Constants
 var EPSILON = 1e-9;
+var CORNERS = [[0, 0], [1, 0], [0, 1], [1, 0], [0, 1], [1, 1]];
 
 // Vertices
 var Vertex = function (indices) {
@@ -47,8 +48,11 @@ QuasiLattice3.prototype = {
 		if (Icos.isFundamental(nv.coords)) {
 			this.border_verts.push(nv);
 		}
-		this.glData.push(nv.coords[0], nv.coords[1], nv.coords[2],
-			nv.coords[3], nv.coords[4], nv.coords[5]);
+		for (var i = 0; i < 6; i++) {
+			this.glData.push(nv.coords[0], nv.coords[1], nv.coords[2],
+				nv.coords[3], nv.coords[4], nv.coords[5]);
+			this.glData.push(CORNERS[i][0], CORNERS[i][1]);
+		}
 		return nv;
 	},
 	addVertSymmetric: function (indices) {
@@ -109,7 +113,7 @@ self.render = function () {
 	self.postMessage({
 		type: 'update',
 		glData: new Float32Array(self.lattice.glData),
-		num_verts: self.lattice.verts.length,
+		num_verts: 6 * self.lattice.verts.length,
 		translators: self.lattice.directions.filter(function (x) {
 			return (x.r2 < 10);
 		}).map(function (x) {

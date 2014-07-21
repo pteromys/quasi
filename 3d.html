@@ -258,8 +258,8 @@
 			// Animation
 			var glc = new GLWrapper();
 			// Set up
-			glc.glData = new Float32Array([0, 0, 0, 0, 0, 0]);
-			glc.num_verts = 1;
+			glc.glData = new Float32Array([]);
+			glc.num_verts = 0;
 			glc.updateData = function (num_verts, glData) {
 				var gl = this.gl;
 				this.num_verts = num_verts;
@@ -297,18 +297,23 @@
 				gl.bindBuffer(gl.ARRAY_BUFFER, glc.vertex_buffer);
 				var pos = gl.getAttribLocation(prog, 'aVPosition');
 				gl.enableVertexAttribArray(pos);
-				gl.vertexAttribPointer(pos, 3, gl.FLOAT, false, 24, 0);
+				gl.vertexAttribPointer(pos, 3, gl.FLOAT, false, 32, 0);
 				var clr = gl.getAttribLocation(prog, 'aVColor');
 				gl.enableVertexAttribArray(clr);
-				gl.vertexAttribPointer(clr, 3, gl.FLOAT, false, 24, 12);
+				gl.vertexAttribPointer(clr, 3, gl.FLOAT, false, 32, 12);
+				var tex = gl.getAttribLocation(prog, 'aVTexCoord');
+				gl.enableVertexAttribArray(tex);
+				gl.vertexAttribPointer(tex, 2, gl.FLOAT, false, 32, 24);
 				// Set uniforms
 				gl.uniformMatrix4fv(
 					gl.getUniformLocation(prog, 'uPMatrix'),
+					false, M.toGL4(glc.uPMatrix));
+				gl.uniformMatrix4fv(
+					gl.getUniformLocation(prog, 'uMVMatrix'),
 					false, M.toGL4(
-						M.mulMats(glc.uPMatrix,
 						M.mulMats(window.movable.uBTMatrix,
 							window.movable.uMVMatrix))
-					));
+					);
 				gl.uniform2f(gl.getUniformLocation(prog, 'uScale'),
 					window.movable.scale, 1/window.movable.scale);
 				gl.uniform2fv(gl.getUniformLocation(prog, 'uFog'),
@@ -318,7 +323,7 @@
 				gl.uniform3fv(gl.getUniformLocation(prog, 'uOriginColor'),
 					new Float32Array(window.movable.uOriginColor));
 				// Draw!
-				gl.drawArrays(gl.POINTS, 0, glc.num_verts);
+				gl.drawArrays(gl.TRIANGLES, 0, glc.num_verts);
 			};
 			window.frame_manager = new FrameManager(glc.draw);
 			glc.addProgramByURLs('stars', 'vert.c', 'frag.c', function () {
