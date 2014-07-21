@@ -102,27 +102,6 @@ QuasiLattice3.prototype = {
 			}
 		}
 	},
-	findTranslator: function (scale, origin, color) {
-		s2 = scale * scale;
-		function dirNiceness(v) {
-			var x = V.add(v.coords.slice(0,3), origin);
-			var y = V.add(v.coords.slice(3,6), color);
-			x = V.dot(x, x) * s2;
-			y = V.dot(y, y) / s2;
-			return x + y;
-		}
-		var new_niceness = Infinity;
-		var niceness = Infinity;
-		var dir = this.directions[0];
-		for (var i = 0; i < this.directions.length; i++) {
-			new_niceness = dirNiceness(this.directions[i]);
-			if (new_niceness < niceness) {
-				dir = this.directions[i];
-				niceness = new_niceness;
-			}
-		}
-		return dir;
-	},
 };
 
 self.lattice = new QuasiLattice3();
@@ -131,6 +110,11 @@ self.render = function () {
 		type: 'update',
 		glData: new Float32Array(self.lattice.glData),
 		num_verts: self.lattice.verts.length,
+		translators: self.lattice.directions.filter(function (x) {
+			return (x.r2 < 10);
+		}).map(function (x) {
+			return {origin: x.coords.slice(0,3), color: x.coords.slice(3,6),};
+		}),
 	});
 };
 
@@ -147,13 +131,6 @@ self.onmessage = function (e) {
 	} else if (data.type == 'addVertsByTransform') {
 		self.lattice.addVertsByTransform(data.shrink, data.grow);
 		self.render();
-	} else if (data.type == 'reCenter') {
-		var d = self.lattice.findTranslator(data.scale, data.origin, data.color);
-		self.postMessage({
-			type: 'translation',
-			origin: d.coords.slice(0, 3),
-			color: d.coords.slice(3, 6),
-		});
 	} else {
 		self.postMessage({
 			type: 'message',

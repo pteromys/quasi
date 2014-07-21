@@ -103,7 +103,7 @@
 				this.scale *= amount;
 			};
 			m.MAX_SCALE = 2 + Math.sqrt(5);
-			m.reCenter = function () {};
+			m.translators = [];
 			m.moveAdjust = function () {
 				// Rezooming
 				var s2 = this.scale * this.scale;
@@ -117,7 +117,32 @@
 					this.uOriginColor = V.scale(this.uOriginColor, -this.MAX_SCALE);
 				}
 				// Recentering
-				this.reCenter();
+				if (!this.disable_recentering) {
+					s2 = this.scale * this.scale;
+					function dirNiceness(v) {
+						var x = V.add(v.origin, m.uOrigin);
+						var y = V.add(v.color, m.uOriginColor);
+						x = V.dot(x, x) * s2;
+						y = V.dot(y, y) / s2;
+						return x + 4 * y;
+					}
+					var new_niceness = Infinity;
+					var niceness = Infinity;
+					if (this.translators.length) {
+						var dir = this.translators[0];
+						for (var i = 0; i < this.translators.length; i++) {
+							new_niceness = dirNiceness(this.translators[i]);
+							if (new_niceness < niceness) {
+								dir = this.translators[i];
+								niceness = new_niceness;
+							}
+						}
+						if (dir != this.translators[0]) {
+							this.uOrigin = V.add(dir.origin, this.uOrigin);
+							this.uOriginColor = V.add(dir.color, this.uOriginColor);
+						}
+					}
+				}
 			};
 			m.move = function (dt) {
 				// Rotation
@@ -312,26 +337,16 @@
 				var data = e.data;
 				if (data.type == 'update') {
 					glc.updateData(data.num_verts, data.glData);
-				} else if (data.type == 'translation') {
-					window.movable.uOrigin = V.add(
-						data.origin, window.movable.uOrigin);
-					window.movable.uOriginColor = V.add(
-						data.color, window.movable.uOriginColor);
+					window.movable.translators = data.translators;
+					//if (data.num_verts < 20000) {
+					//	this.postMessage({type: 'addVerts', iterations: 1});
+					//}
 				} else {
 					// Show a message box...
 				}
 			};
-			window.movable.reCenter = function () {
-				if (this.disable_recentering) { return; }
-				window.lattice_worker.postMessage({
-					type: 'reCenter',
-					scale: this.scale,
-					origin: this.uOrigin,
-					color: this.uOriginColor,
-				});
-			};
-			window.lattice_worker.postMessage({type: 'addVerts', iterations: 10});
-			window.lattice_worker.postMessage({type: 'addVertsByTransform', grow: 2, shrink: 1});
+			window.lattice_worker.postMessage({type: 'addVerts', iterations: 1});
+			//window.lattice_worker.postMessage({type: 'addVertsByTransform', grow: 1, shrink: 1});
 		});
 	</script>
 </head>
