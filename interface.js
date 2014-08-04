@@ -145,6 +145,13 @@ var ButtonSystem = {
 			}
 		});
 	},
+	activateClickouts: function () {
+		$('body').on('click', '.overlay', function (e) {
+			if (e.target == this) { // i.e. if not bubbled
+				clickElement($(e.target).find('.button_close'));
+			}
+		});
+	},
 };
 ButtonSystem.activateKeys = ButtonSystem.activateKeys.bind(ButtonSystem);
 $(document).ready(ButtonSystem.activateRootButtons);
