@@ -10,9 +10,13 @@ var screen_state = {
 	radius: 1000,
 };
 
-// Constants
+// Constants and math helpers
 var EPSILON = 1e-9;
 var CORNERS = [[0, 0], [1, 0], [0, 1], [1, 0], [0, 1], [1, 1]];
+var i256 = 1/256;
+var floatToTriple = function (x) {
+	return [(x % 128)*i256, ((x >> 7) % 128)*i256, ((x >> 14) % 128)*i256];
+};
 
 // Vertices
 var Vertex = function (indices) {
@@ -49,9 +53,9 @@ QuasiLattice3.prototype = {
 			this.border_verts.push(nv);
 		}
 		for (var i = 0; i < 6; i++) {
-			this.glData.push(nv.coords[0], nv.coords[1], nv.coords[2],
-				nv.coords[3], nv.coords[4], nv.coords[5]);
+			Array.prototype.push.apply(this.glData, nv.coords);
 			this.glData.push(CORNERS[i][0], CORNERS[i][1]);
+			Array.prototype.push.apply(this.glData, floatToTriple(this.verts.length));
 		}
 		return nv;
 	},
