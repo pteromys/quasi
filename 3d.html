@@ -71,6 +71,7 @@
 			m.isMovingSuper = m.isMoving;
 			m.isMoving = function () {
 				if (this.keys_down['press']) { return true; }
+				if (!(V.isZero(this.uOriginExtra))) { return true; }
 				if (this.is_hammer_busy) { return false; }
 				return this.isMovingSuper();
 			};
@@ -82,6 +83,7 @@
 				this.uVariance = this.uVariance || 0.4;
 				this.scale = 1.0;
 				this.uOrigin = [0, 0, 0];
+				this.uOriginExtra = [0, 0, 0];
 				this.uOriginColor = [0, 0, 0];
 				this.uFog = [10, -1];
 				this.uMVMatrix = [
@@ -137,11 +139,22 @@
 				if (s2 > this.MAX_SCALE) {
 					this.scale /= this.MAX_SCALE;
 					this.uOrigin = V.scale(this.uOrigin, this.MAX_SCALE);
+					this.uOriginExtra = V.scale(this.uOriginExtra, this.MAX_SCALE);
 					this.uOriginColor = V.scale(this.uOriginColor, -1/this.MAX_SCALE);
 				} else if (s2 * this.MAX_SCALE < 1) {
 					this.scale *= this.MAX_SCALE;
 					this.uOrigin = V.scale(this.uOrigin, 1/this.MAX_SCALE);
+					this.uOriginExtra = V.scale(this.uOriginExtra, 1/this.MAX_SCALE);
 					this.uOriginColor = V.scale(this.uOriginColor, -this.MAX_SCALE);
+				}
+				// Viewpoint yoinging
+				var dist_extra = Math.sqrt(V.dot(this.uOriginExtra, this.uOriginExtra));
+				if ((!dist_extra) || (dist_extra <= 0.01)) {
+					this.uOriginExtra = [0, 0, 0];
+				} else if (dist_extra <= 0.1) {
+					this.uOriginExtra = V.scale(this.uOriginExtra, 1 - 0.005/dist_extra);
+				} else {
+					this.uOriginExtra = V.scale(this.uOriginExtra, 0.95);
 				}
 				// Recentering
 				if (!this.disable_recentering) {
@@ -260,11 +273,21 @@
 				m.motionCallback();
 			});
 			h.on('doubletap', function (e) {
-				window.movable.selection = window.glc.pick(
+				var i = window.glc.pick(
 					e.center.x/$(window).width(),
 					e.center.y/$(window).height()
 				);
-				console.log(window.movable.selection);
+				window.movable.selection = i;
+				if (!i) { return; }
+				// Move origin
+				var new_origin = Array.prototype.slice.apply(glc.glData,
+					[(i-1)*6*11, (i-1)*6*11 + 3]);
+				window.movable.uOriginExtra = V.add(V.add(
+					window.movable.uOriginExtra,
+					window.movable.uOrigin),
+					new_origin);
+				window.movable.uOrigin = V.scale(new_origin, -1);
+				window.movable.velocity[2] = window.movable.velocity[6] = 0;
 				window.frame_manager.requestFrame();
 			});
 			$('#main').on('wheel DOMMouseScroll mousewheel', function (e) {
@@ -378,7 +401,9 @@
 					-0.25 / window.movable.uVariance, // variance
 					0.8 / Math.sqrt(window.movable.uVariance)); // color scaling
 				gl.uniform3fv(gl.getUniformLocation(prog, 'uOrigin'),
-					new Float32Array(window.movable.uOrigin));
+					new Float32Array(V.add(
+					window.movable.uOrigin,
+					window.movable.uOriginExtra)));
 				gl.uniform3fv(gl.getUniformLocation(prog, 'uOriginColor'),
 					new Float32Array(window.movable.uOriginColor));
 			};
@@ -435,12 +460,15 @@
 				}*/
 				// Draw!
 				gl.drawArrays(gl.TRIANGLES, 0, glc.num_verts);
-				if (window.movable.selection) {
+				if (window.movable.selection && !V.isZero(window.movable.uOriginExtra)) {
 					glc.prepareDrawData(glc.shaders.locker);
 					gl.uniform3f(gl.getUniformLocation(glc.shaders.locker, 'uDotSize'),
 						2*window.movable.uDotSize, 0, 0);
-					gl.drawArrays(gl.TRIANGLES, window.movable.selection * 6 - 6, 6);
+					gl.uniform3fv(gl.getUniformLocation(glc.shaders.locker, 'uOrigin'),
+						new Float32Array(window.movable.uOriginExtra));
+					gl.drawArrays(gl.TRIANGLES, 0, 6);
 				}
+				return window.movable.isMoving();
 			};
 			window.frame_manager = new FrameManager(glc.draw);
 			var setupContinue = awaitFlags(7, function () {
@@ -518,8 +546,10 @@
 			<p>The controls are as follows.
 			<ul>
 				<li>Turn: arrow keys and &lt;, &gt; or mouse/finger dragging.</li>
-				<li>Zoom: "+" and "-", mouse scrolling, or pinch zoom.</li>
+				<li>Zoom: "+" and "-", mouse scrolling, or pinch zoom.
+					(Hint: lock onto a point first.)</li>
 				<li>Fly: spacebar and Z or press-and-hold.</li>
+				<li>Lock onto a point: double-tap.</li>
 			</ul></p>
 			<p>Code written by <a href="http://pteromys.melonisland.net/">Pteromys</a>
 			and released under the <a href="http://unlicense.org/">Unlicense</a>.</p>
