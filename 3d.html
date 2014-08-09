@@ -220,7 +220,8 @@
 			h.add(new Hammer.Rotate({threshold: 0}).recognizeWith(h.get('pan')));
 			h.add(new Hammer.Pinch({threshold: 0}).recognizeWith([h.get('pan'), h.get('rotate')]));
 			h.add(new Hammer.Press({}).recognizeWith(h.get('pan')));
-			h.add(new Hammer.Tap({event: 'doubletap', taps: 2}).recognizeWith(h.get('pan')));
+			h.add(new Hammer.Tap({event: 'tripletap', taps: 3}).recognizeWith(h.get('pan')));
+			h.add(new Hammer.Tap({event: 'doubletap', taps: 2}).recognizeWith(h.get('pan')).requireFailure(h.get('tripletap')));
 			h.on('pan pinch rotate', function (e) {
 				var last = getLast();
 				var yaw = 0;
@@ -288,6 +289,21 @@
 					new_origin);
 				window.movable.uOrigin = V.scale(new_origin, -1);
 				window.movable.velocity[2] = window.movable.velocity[6] = 0;
+				window.frame_manager.requestFrame();
+			});
+			h.on('tripletap', function (e) {
+				if (window.movable.uBTMatrix[2][3]) {
+					window.movable.uBTMatrix[2][3] = 0;
+					r = -window.movable.radius;
+				} else {
+					window.movable.uBTMatrix[2][3] = -window.movable.radius;
+					r = window.movable.radius;
+				}
+				// Animate transition
+				window.movable.uOriginExtra = V.add(
+					window.movable.uOriginExtra,
+					M.mul(M.transpose(window.movable.uMVMatrix),
+						[0, 0, r]));
 				window.frame_manager.requestFrame();
 			});
 			$('#main').on('wheel DOMMouseScroll mousewheel', function (e) {
@@ -550,6 +566,7 @@
 					(Hint: lock onto a point first.)</li>
 				<li>Fly: spacebar and Z or press-and-hold.</li>
 				<li>Lock onto a point: double-tap.</li>
+				<li>Toggle first-person view: triple-tap.</li>
 			</ul></p>
 			<p>Code written by <a href="http://pteromys.melonisland.net/">Pteromys</a>
 			and released under the <a href="http://unlicense.org/">Unlicense</a>.</p>
