@@ -219,7 +219,7 @@
 			h.add(new Hammer.Pan({threshold: 0, pointers: 0}));
 			h.add(new Hammer.Rotate({threshold: 0}).recognizeWith(h.get('pan')));
 			h.add(new Hammer.Pinch({threshold: 0}).recognizeWith([h.get('pan'), h.get('rotate')]));
-			h.add(new Hammer.Press({}).recognizeWith(h.get('pan')));
+			h.add(new Hammer.Press({threshold: 10}).recognizeWith(h.get('pan')));
 			h.add(new Hammer.Tap({event: 'tripletap', taps: 3}).recognizeWith(h.get('pan')));
 			h.add(new Hammer.Tap({event: 'doubletap', taps: 2}).recognizeWith(h.get('pan')).requireFailure(h.get('tripletap')));
 			h.on('pan pinch rotate', function (e) {
