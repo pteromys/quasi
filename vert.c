@@ -26,8 +26,8 @@ mediump vec4 face(in mediump vec4 facing, in mediump vec2 corner) {
 void main(void) {
 	// Transform
 	vColor = (aVColor + uOriginColor) * uScale.y;
-	lowp float radius = uDotSize.x * exp(dot(vColor, vColor) * uDotSize.y);
-	gl_Position = uPMatrix * face(vec4((aVPosition + uOrigin) * uScale.x, 1.0), radius * aVTexCoord - vec2(0.5 * radius));
+	lowp float diameter = uDotSize.x * exp(dot(vColor, vColor) * uDotSize.y);
+	gl_Position = uPMatrix * face(vec4((aVPosition + uOrigin) * uScale.x, 1.0), diameter * aVTexCoord - vec2(0.5 * diameter));
 	// Set paint parameters
 	vFog = clamp(uFog.x/gl_Position.w - uFog.y, 0.0, 1.0);
 	vFog = 2.0 * vFog - vFog * vFog; // smoothly fade from full brightness

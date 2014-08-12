@@ -190,8 +190,8 @@
 					var cx = $(window).width()/2;
 					var cy = $(window).height()/2;
 					var last = getLast();
-					this.velocity[0] = 0.6 * (last.centerX - cx) / this.screen_radius || 0;
-					this.velocity[1] = 0.6 * (last.centerY - cy) / this.screen_radius || 0;
+					this.velocity[0] = 0.6 * (last.centerX - cx) / this.screen_diameter || 0;
+					this.velocity[1] = 0.6 * (last.centerY - cy) / this.screen_diameter || 0;
 				}
 				var yaw = 0.003 * this.velocity[0] * dt;
 				var pitch = -0.003 * this.velocity[1] * dt;
@@ -232,8 +232,8 @@
 					if (dt) { // Only move if this isn't a duplicate event
 						// Rotation
 						if (!m.keys_down['press']) {
-							yaw = -1.5 * (e.deltaX - last.deltaX) / m.screen_radius;
-							pitch = 1.5 * (e.deltaY - last.deltaY) / m.screen_radius;
+							yaw = -1.5 * (e.deltaX - last.deltaX) / m.screen_diameter;
+							pitch = 1.5 * (e.deltaY - last.deltaY) / m.screen_diameter;
 						}
 						var roll = ((540 + e.rotation - last.rotation) % 360 - 180) * Math.PI / 180;
 						// Inhibit sudden 180-degree flip if fingers get swapped
@@ -387,8 +387,8 @@
 				this.resize($(window).innerWidth(), $(window).innerHeight());
 			};
 			glc.resizeCallback = function (w, h) {
-				window.movable.screen_radius = this.screen_radius = Math.sqrt(w*w + h*h);
-				var ir = 1.5/this.screen_radius;
+				window.movable.screen_diameter = this.screen_diameter = Math.sqrt(w*w + h*h);
+				var ir = 1.5/this.screen_diameter;
 				this.uPMatrix = M.fromGL4(this.projectionMatrix(ir*w, ir*h, 0.1, 1000));
 				window.frame_manager.requestFrame();
 			};
