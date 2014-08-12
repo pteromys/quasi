@@ -365,6 +365,7 @@
 					gl.bindBuffer(gl.ARRAY_BUFFER, this.vertex_buffer);
 					gl.bufferData(gl.ARRAY_BUFFER, this.glData, gl.STATIC_DRAW);
 					while (this.oom()) {
+						this.memory_full = true;
 						this.mem_limit = 66 * Math.ceil((this.mem_limit || glData.length)/132);
 						saveData(glData);
 						this.setupCallback();
@@ -529,21 +530,48 @@
 			glc.addProgramByURLs('locker', 'vert.c', 'flock.c', setupContinue.bind(null, 4));
 			window.glc = glc;
 			// Init lattice
+			var requestMorePoints = (function () {
+				var i = 0;
+				var BASE_REQUESTS = [
+					{type: 'addVerts', iterations: 5},
+					{type: 'addVerts', iterations: 5},
+					{type: 'addVertsShrink'},
+					{type: 'addVertsGrow'},
+					{type: 'addVertsGrow'},
+					{type: 'addVertsGrow'},
+				];
+				var finalized = false;
+				return function (neighbor_size) {
+					if (finalized) { return; }
+					if (neighbor_size < 200) {
+						finalized = true;
+						window.lattice_worker.postMessage({type: 'addVertsShrink'});
+						window.lattice_worker.postMessage({type: 'addVertsGrow'});
+					} else {
+						if (i < BASE_REQUESTS.length) {
+							window.lattice_worker.postMessage(BASE_REQUESTS[i]);
+							i++;
+						} else {
+							window.lattice_worker.postMessage({type: 'addVerts', iterations: 5});
+						}
+					}
+				};
+			})();
 			window.lattice_worker = new Worker('quasilattice3.js');
 			window.lattice_worker.onmessage = function (e) {
 				var data = e.data;
 				if (data.type == 'update') {
-					glc.updateData(data.num_verts, data.glData);
+					if (!glc.memory_full) {
+						glc.updateData(data.num_verts, data.glData);
+					}
 					window.movable.translators = data.translators;
-					//if (data.num_verts < 20000) {
-					//	this.postMessage({type: 'addVerts', iterations: 1});
-					//}
+					movable.uFog[0] = data.num_verts/36000;
+					requestMorePoints((glc.screen_diameter || 512) / Math.sqrt(data.next_weight));
 				} else {
 					// Show a message box...
 				}
 			};
-			window.lattice_worker.postMessage({type: 'addVerts', iterations: 1});
-			//window.lattice_worker.postMessage({type: 'addVertsByTransform', grow: 1, shrink: 1});
+			requestMorePoints();
 		});
 	</script>
 </head>

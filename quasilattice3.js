@@ -129,6 +129,7 @@ self.render = function (source) {
 		}).map(function (x) {
 			return {origin: x.coords.slice(0,3), color: x.coords.slice(3,6),};
 		}),
+		next_weight: self.lattice.border_verts.first().weight,
 	});
 };
 
