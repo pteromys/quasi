@@ -18,6 +18,13 @@ var floatToTriple = function (x) {
 	return [(x % 128)*i256, ((x >> 7) % 128)*i256, ((x >> 14) % 128)*i256];
 };
 
+// Parameters for weight computation
+var VARIANCE = 0.4;
+var FUZZ_D2 = 1;
+var FUZZ_R2 = 1;
+var MAX_S2 = Math.sqrt(5) + 2;
+var MIN_S2 = Math.sqrt(5) - 2;
+
 // Vertices
 var Vertex = function (indices) {
 	this.indices = indices.slice();
@@ -26,7 +33,9 @@ var Vertex = function (indices) {
 	var c = this.coords;
 	this.r2 = c[0]*c[0] + c[1]*c[1] + c[2]*c[2];
 	this.d2 = c[3]*c[3] + c[4]*c[4] + c[5]*c[5];
-	this.weight = this.r2 + this.d2;
+	var s2 = Math.max(MIN_S2, Math.min(0.5 * this.d2/VARIANCE, MAX_S2));
+	this.weight = //Math.sqrt(this.r2) + this.d2 + Math.pow(this.d2 / 2.058, 3);
+		this.r2 * s2 * Math.max(1, Math.exp(0.5 * (this.d2 - FUZZ_D2) / (VARIANCE * s2)));
 };
 
 // The quasilattice
@@ -36,20 +45,19 @@ var QuasiLattice3 = function () {
 	this.border_verts = new Heap([], this.vertCmp);
 	this.vert_names = {};
 	this.directions = [];
-	this.direction_threshold = Infinity;
 	this.addVertSymmetric([0,0,0,0,0,0]);
-	this.direction_threshold = Infinity;
 	this.addVertSymmetric([1,0,0,0,0,0]);
 };
 QuasiLattice3.prototype = {
 	vertCmp: function (a, b) { return a.weight < b.weight; },
 	addVert: function (indices) {
 		var name = indices.join(' ');
-		if (this.vert_names[name]) { return false; }
-		var nv = new Vertex(indices);
+		var nv = this.vert_names[name];
+		if (nv) { return nv; }
+		nv = new Vertex(indices);
 		this.verts.push(nv);
 		this.vert_names[name] = nv;
-		if (Icos.isFundamental(nv.coords)) {
+		if (nv.is_fundamental) {
 			this.border_verts.push(nv);
 		}
 		for (var i = 0; i < 6; i++) {
@@ -60,28 +68,25 @@ QuasiLattice3.prototype = {
 		return nv;
 	},
 	addVertSymmetric: function (indices) {
-		var dt = this.direction_threshold;
+		if (this.vert_names[indices.join(' ')]) { return false; }
 		for (var i = 0; i < Icos.GROUP.length; i++) {
-			var nv = this.addVert(M.mul(Icos.GROUP[i], indices));
-			if (nv) {
-				if (nv.d2 < dt + EPSILON) {
-					this.directions.push(nv);
-					this.direction_threshold = nv.d2;
-					new_direction = true;
+			this.addVert(M.mul(Icos.GROUP[i], indices));
+		}
+	},
+	addVerts: function () {
+		var v = this.border_verts.pop();
+		if (!v) { return false; }
+		if (v.d2 < 1.1 && v.r2 < 100) {
+			for (var i = 0; i < Icos.GROUP.length; i++) {
+				var nd = this.vert_names[M.mul(Icos.GROUP[i], v.indices).join(' ')];
+				if (this.directions.indexOf(nd) < 0) {
+					this.directions.push(nd);
 				}
 			}
 		}
-	},
-	addVerts: function (v) {
-		if (!v) {
-			v = this.border_verts.pop();
-			if (!v) { return false; }
-		}
-		var nv;
 		var c = this.verts.length;
 		for (var i = 1; i < this.directions.length; i++) {
-			nv = V.add(v.indices, this.directions[i].indices);
-			this.addVertSymmetric(nv);
+			this.addVertSymmetric(V.add(v.indices, this.directions[i].indices));
 		}
 		return this.verts.length - c;
 	},
