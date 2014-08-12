@@ -337,6 +337,15 @@
 			glc.glData = new Float32Array([]);
 			glc.mem_limit = undefined;
 			glc.num_verts = 0;
+			glc.num_verts_avail = 0;
+			glc.upLOD = function () {
+				if (this.num_verts < this.num_verts_avail) {
+					this.num_verts = Math.min(this.num_verts_avail, 2 * this.num_verts);
+				}
+			};
+			glc.downLOD = function () {
+				this.num_verts = 6 * Math.ceil(this.num_verts/12);
+			};
 			glc.oom = function () {
 				var e;
 				while (e = this.gl.getError()) {
@@ -346,14 +355,18 @@
 			};
 			glc.updateData = function (num_verts, glData) {
 				var gl = this.gl;
-				this.num_verts = num_verts;
-				this.glData = glData.subarray(0, this.mem_limit || glData.length);
+				var t = this;
+				function saveData(glData) {
+					t.glData = glData.subarray(0, t.mem_limit || glData.length);
+					t.num_verts = t.num_verts_avail = t.glData.length/11;
+				}
+				saveData(glData);
 				if (gl) {
 					gl.bindBuffer(gl.ARRAY_BUFFER, this.vertex_buffer);
 					gl.bufferData(gl.ARRAY_BUFFER, this.glData, gl.STATIC_DRAW);
 					while (this.oom()) {
-						this.mem_limit = 66 * Math.round((this.mem_limit || glData.length)/132);
-						this.glData = this.glData.subarray(0, this.mem_limit);
+						this.mem_limit = 66 * Math.ceil((this.mem_limit || glData.length)/132);
+						saveData(glData);
 						this.setupCallback();
 					}
 					window.frame_manager.requestFrame();
@@ -464,7 +477,6 @@
 				var gl = glc.gl;
 				window.movable.update(this.dt);
 				window.movable.moveAdjust();
-				//this.num_verts = this.num_verts || glc.num_verts;
 				gl.enable(gl.BLEND);
 				gl.disable(gl.DEPTH_TEST);
 				gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -497,6 +509,9 @@
 						new Float32Array(window.movable.uOriginExtra));
 					gl.drawArrays(gl.TRIANGLES, 0, 6);
 				}
+				var frame_time = window.performance.now() - time_scheduled;
+				if (frame_time < 8) { glc.upLOD(); }
+				if (frame_time > 16) { glc.downLOD(); }
 				return window.movable.isMoving();
 			};
 			window.frame_manager = new FrameManager(glc.draw);
