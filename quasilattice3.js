@@ -36,6 +36,8 @@ var Vertex = function (indices) {
 	var s2 = Math.max(MIN_S2, Math.min(0.5 * this.d2/VARIANCE, MAX_S2));
 	this.weight = //Math.sqrt(this.r2) + this.d2 + Math.pow(this.d2 / 2.058, 3);
 		this.r2 * s2 * Math.max(1, Math.exp(0.5 * (this.d2 - FUZZ_D2) / (VARIANCE * s2)));
+	this.v_shrunk = null;
+	this.v_grown = null;
 };
 
 // The quasilattice
@@ -47,6 +49,8 @@ var QuasiLattice3 = function () {
 	this.directions = [];
 	this.addVertSymmetric([0,0,0,0,0,0]);
 	this.addVertSymmetric([1,0,0,0,0,0]);
+	this.start_index_shrink = 0;
+	this.start_index_grow = 0;
 };
 QuasiLattice3.prototype = {
 	vertCmp: function (a, b) { return a.weight < b.weight; },
@@ -90,37 +94,34 @@ QuasiLattice3.prototype = {
 		}
 		return this.verts.length - c;
 	},
-	addVertsByTransform: function (shrink, grow) {
-		shrink = shrink || 0;
-		grow = grow || 1;
+	addVertsShrink: function () {
 		var limit = this.verts.length;
-		// Set up matrices to transform by
-		var mats = [];
-		var t = Icos.M_SHRINK;
-		for (var j = 1; j <= shrink; j++) {
-			mats.push(t);
-			t = M.mulMats(Icos.M_SHRINK, t);
-		}
-		t = Icos.M_EXPAND;
-		for (var j = 1; j <= grow; j++) {
-			mats.push(t);
-			t = M.mulMats(Icos.M_EXPAND, t);
-		}
-		// Add verts
-		for (var i = 0; i < limit; i++) {
-			if (this.verts[i].is_fundamental) {
-				for (var j = 0; j < mats.length; j++) {
-					this.addVertSymmetric(M.mul(mats[j], this.verts[i].indices));
-				}
+		for (var i = this.start_index_shrink; i < limit; i++) {
+			if (!this.verts[i].v_shrunk) {
+				this.verts[i].v_shrunk = this.addVert(M.mul(Icos.M_SHRINK, this.verts[i].indices));
+				this.verts[i].v_shrunk.v_grown = this.verts[i];
 			}
 		}
+		this.start_index_shrink = limit;
+	},
+	addVertsGrow: function () {
+		var limit = this.verts.length;
+		for (var i = this.start_index_grow; i < limit; i++) {
+			if (!this.verts[i].v_grown) {
+				this.verts[i].v_grown = this.addVert(M.mul(Icos.M_EXPAND, this.verts[i].indices));
+				this.verts[i].v_grown.v_shrunk = this.verts[i];
+			}
+		}
+		this.start_index_grow = limit;
 	},
 };
 
 self.lattice = new QuasiLattice3();
-self.render = function () {
+self.render = function (source) {
+	source = source || 'render';
 	self.postMessage({
 		type: 'update',
+		"source": source,
 		glData: new Float32Array(self.lattice.glData),
 		num_verts: 6 * self.lattice.verts.length,
 		translators: self.lattice.directions.filter(function (x) {
@@ -140,10 +141,13 @@ self.onmessage = function (e) {
 		for (var i = 0; i < n; i++) {
 			self.lattice.addVerts();
 		}
-		self.render();
-	} else if (data.type == 'addVertsByTransform') {
-		self.lattice.addVertsByTransform(data.shrink, data.grow);
-		self.render();
+		self.render('neighbors');
+	} else if (data.type == 'addVertsShrink') {
+		self.lattice.addVertsShrink();
+		self.render('shrink');
+	} else if (data.type == 'addVertsGrow') {
+		self.lattice.addVertsGrow();
+		self.render('grow');
 	} else {
 		self.postMessage({
 			type: 'message',
