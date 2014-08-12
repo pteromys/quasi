@@ -335,14 +335,27 @@
 			var glc = new GLWrapper();
 			// Set up
 			glc.glData = new Float32Array([]);
+			glc.mem_limit = undefined;
 			glc.num_verts = 0;
+			glc.oom = function () {
+				var e;
+				while (e = this.gl.getError()) {
+					if (e == this.gl.OUT_OF_MEMORY) { return true; }
+				}
+				return false;
+			};
 			glc.updateData = function (num_verts, glData) {
 				var gl = this.gl;
 				this.num_verts = num_verts;
-				this.glData = glData;
+				this.glData = glData.subarray(0, this.mem_limit || glData.length);
 				if (gl) {
 					gl.bindBuffer(gl.ARRAY_BUFFER, this.vertex_buffer);
 					gl.bufferData(gl.ARRAY_BUFFER, this.glData, gl.STATIC_DRAW);
+					while (this.oom()) {
+						this.mem_limit = 66 * Math.round((this.mem_limit || glData.length)/132);
+						this.glData = this.glData.subarray(0, this.mem_limit);
+						this.setupCallback();
+					}
 					window.frame_manager.requestFrame();
 				}
 			};
