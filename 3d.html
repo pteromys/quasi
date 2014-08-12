@@ -541,9 +541,11 @@
 					{type: 'addVertsGrow'},
 				];
 				var finalized = false;
+				var end_time = 0;
 				return function (neighbor_size) {
 					if (finalized) { return; }
-					if (neighbor_size < 200) {
+					if (!end_time) { end_time = 5000 + (new Date()).valueOf(); }
+					if (end_time < (new Date()).valueOf() || neighbor_size < 200) {
 						finalized = true;
 						window.lattice_worker.postMessage({type: 'addVertsShrink'});
 						window.lattice_worker.postMessage({type: 'addVertsGrow'});
