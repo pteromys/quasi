@@ -574,6 +574,7 @@
 						finalized = true;
 						window.lattice_worker.postMessage({type: 'addVertsShrink'});
 						window.lattice_worker.postMessage({type: 'addVertsGrow'});
+						window.lattice_worker.postMessage({type: 'addVerts', iterations: 5});
 					} else {
 						if (i < BASE_REQUESTS.length) {
 							window.lattice_worker.postMessage(BASE_REQUESTS[i]);

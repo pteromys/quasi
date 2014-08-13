@@ -24,6 +24,7 @@ var FUZZ_D2 = 1;
 var FUZZ_R2 = 1;
 var MAX_S2 = Math.sqrt(5) + 2;
 var MIN_S2 = Math.sqrt(5) - 2;
+var DIRECTION_MAX_R2 = 100;
 
 // Vertices
 var Vertex = function (indices) {
@@ -33,9 +34,10 @@ var Vertex = function (indices) {
 	var c = this.coords;
 	this.r2 = c[0]*c[0] + c[1]*c[1] + c[2]*c[2];
 	this.d2 = c[3]*c[3] + c[4]*c[4] + c[5]*c[5];
-	var s2 = Math.max(MIN_S2, Math.min(0.5 * this.d2/VARIANCE, MAX_S2));
-	this.weight = //Math.sqrt(this.r2) + this.d2 + Math.pow(this.d2 / 2.058, 3);
-		this.r2 * s2 * Math.max(1, Math.exp(0.5 * (this.d2 - FUZZ_D2) / (VARIANCE * s2)));
+	var s2 = 0.5 * this.d2 / VARIANCE;
+	s2 = Math.max(MIN_S2, Math.min(s2, MAX_S2));
+	this.weight = this.r2 * s2 * Math.max(1,
+		Math.exp(0.5 * (this.d2 - FUZZ_D2) / (VARIANCE * s2)));
 	this.v_shrunk = null;
 	this.v_grown = null;
 };
@@ -80,7 +82,7 @@ QuasiLattice3.prototype = {
 	addVerts: function () {
 		var v = this.border_verts.pop();
 		if (!v) { return false; }
-		if (v.d2 < 1.1 && v.r2 < 100) {
+		if (v.d2 < 1.1 && v.r2 < DIRECTION_MAX_R2) {
 			for (var i = 0; i < Icos.GROUP.length; i++) {
 				var nd = this.vert_names[M.mul(Icos.GROUP[i], v.indices).join(' ')];
 				if (this.directions.indexOf(nd) < 0) {
