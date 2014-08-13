@@ -31,6 +31,10 @@
 	line-height: 1.5;
 	margin: 1em 0em;
 }
+.box li {
+	margin-bottom: 0.5em;
+	line-height: 1.4;
+}
 a:link { color: #7bf; }
 a:visited { color: #d7f; }
 a:hover { color: #bdf; }
@@ -120,6 +124,10 @@ input.valid {
 input.invalid {
 	background: #f97;
 	background: rgba(255, 159, 127, 0.75);
+}
+input[type="checkbox"] {
+	display: inline-block;
+	vertical-align: middle;
 }
 
 

@@ -225,8 +225,8 @@
 			h.add(new Hammer.Rotate({threshold: 0}).recognizeWith(h.get('pan')));
 			h.add(new Hammer.Pinch({threshold: 0}).recognizeWith([h.get('pan'), h.get('rotate')]));
 			h.add(new Hammer.Press({threshold: 10}).recognizeWith(h.get('pan')));
-			h.add(new Hammer.Tap({event: 'tripletap', taps: 3, threshold: 20}).recognizeWith(h.get('pan')));
-			h.add(new Hammer.Tap({event: 'doubletap', taps: 2, threshold: 20}).recognizeWith(h.get('pan')).requireFailure(h.get('tripletap')));
+			h.add(new Hammer.Tap({event: 'tripletap', taps: 3, posThreshold: 20}).recognizeWith(h.get('pan')));
+			h.add(new Hammer.Tap({event: 'doubletap', taps: 2, posThreshold: 20}).recognizeWith(h.get('pan')).requireFailure(h.get('tripletap')));
 			h.on('pan pinch rotate', function (e) {
 				var last = getLast();
 				var yaw = 0;
@@ -346,6 +346,10 @@
 				e.preventDefault();
 				window.movable.moveReset();
 				window.frame_manager.requestFrame();
+			});
+			$('#config_addpoints').on('click', function (e) {
+				e.preventDefault();
+				window.lattice_worker.postMessage({type: 'addVerts', iterations: 5});
 			});
 		};
 
@@ -568,7 +572,10 @@
 				var finalized = false;
 				var end_time = 0;
 				return function (neighbor_size) {
-					if (finalized) { return; }
+					if (finalized) {
+						$('#config_addpoints').prop('disabled', false);
+						return;
+					}
 					if (!end_time) { end_time = 5000 + (new Date()).valueOf(); }
 					if (end_time < (new Date()).valueOf() || neighbor_size < 200) {
 						finalized = true;
@@ -616,7 +623,8 @@
 			<ul>
 				<li><input type="checkbox" id="config_fp" /><label for="config_fp">First-person view</label></li>
 				<li><input type="checkbox" id="config_fog" checked="checked" /><label for="config_fog">Hide incompletely-drawn regions with fog</label></li>
-				<li><button id="config_reset"/>Reset</button></li>
+				<li><button id="config_reset"/>Reset view</button>
+					<button id="config_addpoints" disabled="disabled" />Draw more points</button></li>
 			</ul>
 		</form>
 	</div></div>
@@ -624,8 +632,27 @@
 		<div class="box">
 			<a class="button icon button_close button_rightmargin"
 				title="Close" href="#">&times;</a>
+			<h2>Help</h2>
+			<p>The controls are as follows.
+			<ul>
+				<li><b>Turn</b>: arrow keys and &lt;, &gt; or mouse/finger dragging.</li>
+				<li><b>Fly</b>: spacebar and Z or press-and-hold.</li>
+				<li><b>Zoom</b>: "+" and "-", mouse scrolling, or pinch zoom.
+					(Hint: lock onto a point first.)</li>
+				<li><b>Lock on</b> to a point: double-tap.</li>
+				<li>Toggle <b>first-person</b> view: triple-tap.</li>
+			</ul></p>
+			<p><a href="#help_about">What am I seeing here?</a></p>
+		</div>
+	</div>
+	<div id="help_about" class="overlay">
+		<div class="box">
+			<a class="button icon button_leftmargin"
+				title="Back" href="#help">&laquo;</a>
+			<a class="button icon button_close button_rightmargin"
+				title="Close" href="#">&times;</a>
 			<h2>About</h2>
-			<p>This page draws the icosahedral 3-dimensional
+			<p>This page draws the icosahedral 3-D
 			<a href="http://en.wikipedia.org/wiki/Quasicrystal"
 				>quasicrystal</a>: a thin 3-D slice of a 6-D
 			<a href="http://en.wikipedia.org/wiki/Lattice_(group)"
@@ -645,15 +672,6 @@
 				<li><a href="#help_selfsimilarity">It's self-similar</a>&mdash;a
 					zoomed-in view is indistinguishable from a zoomed-out view.</li>
 			</ol></p>
-			<p>The controls are as follows.
-			<ul>
-				<li>Turn: arrow keys and &lt;, &gt; or mouse/finger dragging.</li>
-				<li>Zoom: "+" and "-", mouse scrolling, or pinch zoom.
-					(Hint: lock onto a point first.)</li>
-				<li>Fly: spacebar and Z or press-and-hold.</li>
-				<li>Lock onto a point: double-tap.</li>
-				<li>Toggle first-person view: triple-tap.</li>
-			</ul></p>
 			<p>Code written by <a href="http://pteromys.melonisland.net/">Pteromys</a>
 			and released under the <a href="http://unlicense.org/">Unlicense</a>.</p>
 		</div>
@@ -661,7 +679,7 @@
 	<div id="help_selfsimilarity" class="overlay">
 		<div class="box">
 			<a class="button icon button_leftmargin"
-				title="Back" href="#help">&laquo;</a>
+				title="Back" href="#help_about">&laquo;</a>
 			<a class="button icon button_close button_rightmargin"
 				title="Close" href="#">&times;</a>
 			<h2>Self-similarity</h2>
@@ -708,7 +726,7 @@
 	<div id="help_uniqueness" class="overlay">
 		<div class="box">
 			<a class="button icon button_leftmargin"
-				title="Back" href="#help">&laquo;</a>
+				title="Back" href="#help_about">&laquo;</a>
 			<a class="button icon button_close button_rightmargin"
 				title="Close" href="#">&times;</a>
 			<h2>Uniqueness</h2>
