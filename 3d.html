@@ -363,6 +363,8 @@
 			// Init buttons
 			ButtonSystem.activateKeys({191: '#button_help'});
 			ButtonSystem.activateClickouts();
+			// MessageBox
+			window.message_box = new MessageBox('#messages');
 			// Motion
 			window.movable = setupMovable();
 			setupForm();
@@ -575,15 +577,27 @@
 					{type: 'addVertsGrow'},
 					{type: 'addVertsGrow'},
 				];
+				var LIMIT_SIZE = 200;
+				var LIMIT_TIME = 5000;
 				var finalized = false;
-				var end_time = 0;
+				var start_time = 0;
+				var progress_bar;
 				return function (neighbor_size) {
 					if (finalized) {
 						$('#config_addpoints').prop('disabled', false);
+						if (progress_bar) { progress_bar.set(1); }
 						return;
 					}
-					if (!end_time) { end_time = 5000 + (new Date()).valueOf(); }
-					if (end_time < (new Date()).valueOf() || neighbor_size < 200) {
+					if (!progress_bar) {
+						progress_bar = window.message_box.makeProgress('Finding points...');
+						progress_bar.set(0.1);
+					}
+					if (!start_time) { start_time = (new Date()).valueOf(); }
+					var progress = Math.max(0,
+						((new Date()).valueOf() - start_time)/LIMIT_TIME,
+						LIMIT_SIZE/neighbor_size);
+					progress_bar.set(0.1 + progress * 0.8);
+					if (progress > 1) {
 						finalized = true;
 						window.lattice_worker.postMessage({type: 'addVertsShrink'});
 						window.lattice_worker.postMessage({type: 'addVertsGrow'});
@@ -608,8 +622,10 @@
 					window.movable.translators = data.translators;
 					movable.uFog[0] = 0.7 * data.next_weight;
 					requestMorePoints((glc.screen_diameter || 512) / Math.sqrt(data.next_weight));
+				} else if (data.type == 'message') {
+					window.message_box.show(data.message, data.message_class);
 				} else {
-					// Show a message box...
+					window.message_box.show('Window ignored message of type ' + data.type, 'debug warning');
 				}
 			};
 			requestMorePoints();
@@ -621,6 +637,7 @@
 		<img src="quasi-thumbnail.png" alt="Preview" />
 		This demo requires HTML5 Canvas support.
 	</canvas>
+	<div id="messages" class="messagebox"></div>
 	<div id="config" class="overlay"><div class="box">
 		<a class="button icon button_close button_rightmargin"
 			title="Cancel" href="#">&times;</a>

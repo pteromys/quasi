@@ -130,4 +130,52 @@ input[type="checkbox"] {
 	vertical-align: middle;
 }
 
+/* Message Box */
+.messagebox {
+	position: absolute;
+	top: 1em; left: 0em; right: 0em; height: 0em;
+	overflow: visible;
+	text-align: center;
+	z-index: 10;
+}
+.messagebox > .box { max-height: none; }
+.messagebox > .box:empty { visibility: hidden; z-index: -1; }
+.message {
+	background: rgba(0, 0, 0, 0);
+	border-radius: 0.2em;
+	line-height: 0;
+	opacity: 0.0;
+	padding: 0.1em 0.5em;
+	margin: 0em -0.5em;
+	transition: background-color 0.1s, line-height 0.1s, opacity 0.1s;
+}
+.message.active {
+	line-height: 1.2;
+	opacity: 1.0;
+}
+.message.pinned { background: #000; background: rgba(0, 0, 0, 0.9); }
+.message.pinned:before { content: '\002605'; padding-right: 0.5em; }
+.message.error { color: #f96; font-weight: bold; }
+.message.warning { color: #fc0; }
+.message.debug { opacity: 0.5; }
 
+/* Progress bars */
+.progressbar {
+	display: inline-block;
+	vertical-align: middle;
+	width: 5em;
+	height: 1em;
+	margin-left: 1em;
+	background: #000;
+	background: rgba(0, 0, 0, 0.5);
+	border-radius: 0.25em;
+	position: relative;
+}
+.progressbar > div {
+	position: absolute;
+	width: 0em;
+	height: 1em;
+	border-radius: 0.25em;
+	background: #7bf;
+	background: rgba(127, 191, 255, 0.75);
+}
