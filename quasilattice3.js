@@ -1,15 +1,5 @@
 importScripts('heap.js', 'linear.js', 'icos.js');
 
-// Global variables because I haven't figured out where to put them
-var options = {
-	n: null,
-	r: 5,
-};
-var lattice = null;
-var screen_state = {
-	radius: 1000,
-};
-
 // Constants and math helpers
 var EPSILON = 1e-9;
 var CORNERS = [[0, 0], [1, 0], [0, 1], [1, 0], [0, 1], [1, 1]];
@@ -119,7 +109,9 @@ QuasiLattice3.prototype = {
 };
 
 self.lattice = new QuasiLattice3();
+self.active = true;
 self.render = function (source) {
+	if (!self.active) { return; }
 	source = source || 'render';
 	self.postMessage({
 		type: 'update',
@@ -139,6 +131,8 @@ self.onmessage = function (e) {
 	var data = e.data;
 	if (data.type == 'exit') {
 		self.close();
+	} else if (data.type == 'abort') {
+		self.active = false;
 	} else if (data.type == 'addVerts') {
 		var n = data.iterations || 1;
 		for (var i = 0; i < n; i++) {

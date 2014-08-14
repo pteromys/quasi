@@ -375,6 +375,12 @@
 			glc.mem_limit = undefined;
 			glc.num_verts = 0;
 			glc.num_verts_avail = 0;
+			glc.errorCallback = function (msg) {
+				window.message_box.show('GL: ' + msg, 'error', 10000);
+				if (window.lattice_worker) {
+					window.lattice_worker.postMessage({type: 'abort'});
+				}
+			};
 			glc.upLOD = function () {
 				if (this.num_verts < this.num_verts_avail) {
 					this.num_verts = Math.min(this.num_verts_avail, 2 * this.num_verts);
