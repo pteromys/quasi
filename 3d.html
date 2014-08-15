@@ -485,7 +485,7 @@
 				gl.uniform3f(gl.getUniformLocation(prog, 'uDotSize'),
 					window.movable.uDotSize, // straight-up dot size
 					-0.25 / window.movable.uVariance, // variance
-					0.8 / Math.sqrt(window.movable.uVariance)); // color scaling
+					3 / window.movable.uVariance); // color scaling
 				gl.uniform3fv(gl.getUniformLocation(prog, 'uOrigin'),
 					new Float32Array(V.add(
 					window.movable.uOrigin,

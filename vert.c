@@ -31,7 +31,7 @@ void main(void) {
 	// Set paint parameters
 	vFog = clamp(uFog.x/gl_Position.w - uFog.y, 0.0, 1.0);
 	vFog = 2.0 * vFog - vFog * vFog; // smoothly fade from full brightness
-	vColor = clamp(vec3(1.0) - abs(vColor * uDotSize.z), 0.0, 1.0);
+	vColor = vec3(1.0) / (vec3(1.0) + (vColor * vColor * uDotSize.z));
 	vColor /= max(vColor.x, max(vColor.y, vColor.z));
 	vTexCoord = 2.0 * aVTexCoord - vec2(1.0);
 	vVID = aVID;
