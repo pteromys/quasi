@@ -117,7 +117,6 @@ self.render = function (source) {
 		type: 'update',
 		"source": source,
 		glData: new Float32Array(self.lattice.glData),
-		num_verts: 6 * self.lattice.verts.length,
 		translators: self.lattice.directions.filter(function (x) {
 			return (x.r2 < 10);
 		}).map(function (x) {

@@ -396,7 +396,7 @@
 				}
 				return false;
 			};
-			glc.updateData = function (num_verts, glData) {
+			glc.updateData = function (glData) {
 				var gl = this.gl;
 				var t = this;
 				function saveData(glData) {
@@ -623,7 +623,7 @@
 				var data = e.data;
 				if (data.type == 'update') {
 					if (!glc.memory_full) {
-						glc.updateData(data.num_verts, data.glData);
+						glc.updateData(data.glData);
 					}
 					window.movable.translators = data.translators;
 					movable.uFog[0] = 0.7 * data.next_weight;
