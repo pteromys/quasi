@@ -15,7 +15,6 @@ var GLWrapper = function (canvas) {
 
 GLWrapper.prototype = {
 	// Overrideable methods
-	errorCallback: function (msg) { alert(msg); },
 	setupCallback: function () {},
 	resizeCallback: function (w, h) {},
 
@@ -27,7 +26,7 @@ GLWrapper.prototype = {
 		this.gl = canvas.getContext('webgl') ||
 			canvas.getContext('experimental-webgl');
 		if (!this.gl) {
-			this.errorCallback('WebGL unavailable.');
+			throw 'WebGL unavailable.';
 			return false;
 		}
 		// Handle context loss
@@ -106,7 +105,6 @@ GLWrapper.prototype = {
 	linkProgram: function (name) {
 		if (!this.shaderSources[name]) { return null; }
 		var gl = this.gl;
-		var errorCallback = this.errorCallback;
 		var TYPES = [gl.VERTEX_SHADER, gl.FRAGMENT_SHADER];
 		function compile(source, i) {
 			var ans = gl.createShader(TYPES[i]);
@@ -114,9 +112,7 @@ GLWrapper.prototype = {
 			gl.compileShader(ans);
 			if (!gl.getShaderParameter(ans, gl.COMPILE_STATUS) &&
 				!gl.isContextLost()) {
-				errorCallback('Shader compile error: ' +
-					gl.getShaderInfoLog(ans));
-				return null;
+				throw 'Shader compile error: ' + gl.getShaderInfoLog(ans);
 			}
 			return ans;
 		}
@@ -127,9 +123,7 @@ GLWrapper.prototype = {
 		gl.linkProgram(prog);
 		if (!gl.getProgramParameter(prog, gl.LINK_STATUS) &&
 			!gl.isContextLost()) {
-			this.errorCallback("Shader link error: " +
-				gl.getProgramInfoLog(prog));
-			return null;
+			throw "Shader link error: " + gl.getProgramInfoLog(prog);
 		}
 		this.shaders[name] = prog;
 		return prog;

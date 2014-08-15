@@ -15,6 +15,8 @@
 			position: absolute;
 			top: 0px; left: 0px; bottom: 0px; right: 0px;
 		}
+		canvas#main { z-index: 0; }
+		canvas#emulation { z-index: -1; }
 		#config .box { text-align: center; }
 		.box {
 			background: rgba(15, 15, 15, 0.9);
@@ -289,7 +291,6 @@
 					e.center.x/$(window).width(),
 					e.center.y/$(window).height()
 				);
-				window.movable.selection = i;
 				if (!i) { return; }
 				// Move origin
 				var new_origin = Array.prototype.slice.apply(glc.glData,
@@ -375,19 +376,14 @@
 			glc.mem_limit = undefined;
 			glc.num_verts = 0;
 			glc.num_verts_avail = 0;
-			glc.errorCallback = function (msg) {
-				window.message_box.show('GL: ' + msg, 'error', 10000);
-				if (window.lattice_worker) {
-					window.lattice_worker.postMessage({type: 'abort'});
-				}
-			};
 			glc.upLOD = function () {
 				if (this.num_verts < this.num_verts_avail) {
-					this.num_verts = Math.min(this.num_verts_avail, 2 * this.num_verts);
+					this.num_verts = Math.min(this.num_verts_avail,
+						6 * Math.ceil(this.num_verts / 5));
 				}
 			};
 			glc.downLOD = function () {
-				this.num_verts = 6 * Math.ceil(this.num_verts/12);
+				this.num_verts = 6 * Math.ceil(this.num_verts/7);
 			};
 			glc.oom = function () {
 				var e;
@@ -399,9 +395,10 @@
 			glc.updateData = function (glData) {
 				var gl = this.gl;
 				var t = this;
+				this.num_verts = this.num_verts || 1;
 				function saveData(glData) {
 					t.glData = glData.subarray(0, t.mem_limit || glData.length);
-					t.num_verts = t.num_verts_avail = t.glData.length/11;
+					t.num_verts_avail = t.glData.length/11;
 				}
 				saveData(glData);
 				if (gl) {
@@ -413,8 +410,8 @@
 						saveData(glData);
 						this.setupCallback();
 					}
-					window.frame_manager.requestFrame();
 				}
+				window.frame_manager.requestFrame();
 			};
 			glc.setupCallback = function () {
 				var gl = this.gl;
@@ -515,6 +512,7 @@
 			};
 			glc.draw = function (time_scheduled) {
 				var gl = glc.gl;
+				if (!gl) { return false; }
 				window.movable.update(this.dt);
 				window.movable.moveAdjust();
 				gl.enable(gl.BLEND);
@@ -522,26 +520,9 @@
 				gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 				gl.clear(gl.COLOR_BUFFER_BIT);
 				glc.prepareDrawData(glc.shaders.stars);
-				// Debugging...
-				//window.movable.pOrigin = M.mul(M.mulMats(glc.uPMatrix,
-				//	M.mulMats(window.movable.uBTMatrix, window.movable.uMVMatrix)),
-				//	V.scale(window.movable.uOrigin, window.movable.scale).concat(1));
-				/*var w = $('#blehbleh')[0].width = $(window).width();
-				var h = $('#blehbleh')[0].height = $(window).height();
-				var c2 = $('#blehbleh')[0].getContext('2d');
-				var m = M.mulMats(glc.uPMatrix,
-					M.mulMats(window.movable.uBTMatrix, window.movable.uMVMatrix));
-				for (var i = window.movable.selection - 1; i < window.movable.selection; i++) {
-					var v = M.mul(m, V.scale(V.add(Array.prototype.slice.apply(glc.glData, [i*54, i*54 + 3]), window.movable.uOrigin), window.movable.scale).concat(1));
-					c2.fillStyle = '#ff0';
-					if (i != glc.glData[i*54+8] - 1) { c2.fillStyle = '#00f'; }
-					if (i == window.movable.selection - 1) { c2.fillStyle = '#f00'; }
-					if (v[3] < 0) { continue; }
-					fillCircle(c2, w * (1 + v[0]/v[3]) / 2, h * (1 - v[1]/v[3]) / 2, 5);
-				}*/
 				// Draw!
 				gl.drawArrays(gl.TRIANGLES, 0, glc.num_verts);
-				if (window.movable.selection && !V.isZero(window.movable.uOriginExtra)) {
+				if (!V.isZero(window.movable.uOriginExtra)) {
 					glc.prepareDrawData(glc.shaders.locker);
 					gl.uniform3f(gl.getUniformLocation(glc.shaders.locker, 'uDotSize'),
 						2*window.movable.uDotSize, 0, 0);
@@ -550,13 +531,100 @@
 					gl.drawArrays(gl.TRIANGLES, 0, 6);
 				}
 				var frame_time = window.performance.now() - time_scheduled;
-				if (frame_time < 8) { glc.upLOD(); }
-				if (frame_time > 16) { glc.downLOD(); }
+				if (frame_time < 8 && glc.num_verts < glc.num_verts_avail) {
+					glc.upLOD();
+					return true;
+				} else if (frame_time > 16) { glc.downLOD(); }
 				return window.movable.isMoving();
+			};
+			glc.emulatedProjection = function (f) {
+				return (function () {
+					var w = $(window).width();
+					var h = $(window).height();
+					var c2 = $('#emulation')[0].getContext('2d');
+					c2.globalCompositeOperation = 'lighter';
+					var m = M.mulMats(glc.uPMatrix,
+						M.mulMats(window.movable.uBTMatrix, window.movable.uMVMatrix));
+					var uo = V.add(window.movable.uOrigin, window.movable.uOriginExtra);
+					var usc = 1 / window.movable.scale;
+					var udv = -0.25 / window.movable.uVariance;
+					var udz = 3 / Math.sqrt(window.movable.uVariance);
+					var uds = window.movable.uDotSize * Math.sqrt(w*w + h*h) / 6;
+					function scaleColor(x) { return 1 / (1 + x * x * udz); }
+					function to255(x) { return Math.round(x * 255); }
+					for (var i = 0; i < glc.num_verts / 6; i++) {
+						var v = Array.prototype.slice.apply(glc.glData, [i*66, i*66 + 6]);
+						var p = M.mul(m, V.scale(V.add(v, uo), window.movable.scale).concat(1));
+						if (!(Math.abs(p[2]/p[3]) < 1)) { continue; }
+						var c = V.scale(V.add(v.slice(3,6), window.movable.uOriginColor), usc);
+						var clr = c.map(scaleColor);
+						clr = V.scale(clr, 1 / Math.max.apply(Math, clr)).map(to255);
+						c2.fillStyle = 'rgb(' + clr.join(',') + ')';
+						f(c2, p, uds * Math.exp(V.dot(c, c) * udv) / p[3], i);
+					}
+				}).bind(this);
+			};
+			glc.emulatedDraw = function (time_scheduled) {
+				window.movable.update(this.dt);
+				window.movable.moveAdjust();
+				var w = $('#emulation')[0].width = $(window).width();
+				var h = $('#emulation')[0].height = $(window).height();
+				var moving = window.movable.isMoving();
+				var realtime = moving || this.next_id || window.movable.is_hammer_busy;
+				if (realtime) { glc.num_verts = glc.num_verts_emu_sd || 1; }
+				// Draw!
+				glc.emulatedProjection(function (context, p, radius, i) {
+					var x = w * p[0]/p[3];
+					var y = -h * p[1]/p[3];
+					var diameter = 2 * radius;
+					if (Math.abs(x) > w + diameter || Math.abs(y) > h + diameter) {
+						return;
+					}
+					fillCircle(context, (w + x) / 2, (h + y) / 2, radius);
+				})();
+				var frame_time = this.currentFrameTime();
+				if (frame_time > 500) {
+					glc.num_verts_emu_hd = 6 * Math.ceil(glc.num_verts / 7);
+				}
+				if (realtime) {
+					if (frame_time < 16) { glc.upLOD(); }
+					else if (frame_time > 32) { glc.downLOD(); }
+					glc.num_verts_emu_sd = glc.num_verts;
+				} else if (glc.num_verts < Math.min(glc.num_verts_avail, glc.num_verts_emu_hd || 60000)) {
+					glc.upLOD();
+					return true;
+				}
+				return moving;
+			}
+			glc.emulatedPick = function (x, y) {
+				var last_id = -1;
+				var last_depth = Infinity;
+				var w = $(window).width();
+				var h = $(window).height();
+				glc.emulatedProjection(function (context, p, radius, i) {
+					var v = [
+						w * ((1 + p[0]/p[3]) / 2 - x),
+						h * ((1 - p[1]/p[3]) / 2 - y)
+					];
+					if (V.dot(v,v) < radius * radius && p[3] < last_depth) {
+						last_id = i;
+						last_depth = p[3];
+					}
+				})();
+				return last_id + 1;
 			};
 			window.frame_manager = new FrameManager(glc.draw);
 			var setupContinue = awaitFlags(7, function () {
-				glc.bindCanvas($('#main')[0]);
+				try {
+					glc.bindCanvas($('#main')[0]);
+				} catch (e) {
+					window.message_box.show('GL: ' + e, 'error');
+					window.message_box.show('Falling back to emulation.', 'warning');
+					glc.gl = null;
+					glc.draw = window.frame_manager.drawCallback = glc.emulatedDraw;
+					glc.pick = glc.emulatedPick;
+					glc.resize($(window).innerWidth(), $(window).innerHeight());
+				}
 				window.movable.motionCallback = function () {
 					window.frame_manager.requestFrame();
 				};
@@ -639,6 +707,7 @@
 		<img src="quasi-thumbnail.png" alt="Preview" />
 		This demo requires HTML5 Canvas support.
 	</canvas>
+	<canvas id="emulation"></canvas>
 	<div id="messages" class="messagebox"></div>
 	<div id="config" class="overlay"><div class="box">
 		<a class="button icon button_close button_rightmargin"
