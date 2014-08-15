@@ -508,10 +508,6 @@
 						[0, 0, 1, 0],
 						[0, 0, 0, 1],
 					], this.uPMatrix)));
-				gl.uniform3f(gl.getUniformLocation(glc.shaders.picker, 'uDotSize'),
-					2*window.movable.uDotSize, // straight-up dot size
-					-0.25 / window.movable.uVariance, // variance
-					0.8 / Math.sqrt(window.movable.uVariance)); // color scaling
 				gl.drawArrays(gl.TRIANGLES, 0, Math.min(glc.num_verts, (1 << 21) * 6 - 6));
 				gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, glc.last_capture);
 				var clr = Array.prototype.slice.apply(glc.last_capture, []);
