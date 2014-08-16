@@ -68,8 +68,11 @@ var Icos = {
 		[1, -1, -1, 1, -2, 1],
 		[1, 1, -1, -1, 1, -2],
 	],
+	actExpand: function (v) { return M.mul(this.M_EXPAND, v); },
+	actShrink: function (v) { return M.mul(this.M_SHRINK, v); },
 
 	// The group action
+	act: function (i, v) { return M.mul(this.GROUP[i], v); },
 	GROUP: (function () {
 		var ans = new Array(120);
 		function product() {
