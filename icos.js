@@ -45,9 +45,9 @@ var Icos = {
 	// attached to point 0, on edge 01, and in triangle 012.
 	isFundamental: function (coords) {
 		var dots = M.mul(this.BASIS, coords.slice(0,3));
-		return dots[2] >= dots[5] - EPSILON &&
-			dots[1] >= dots[2] - EPSILON &&
-			dots[0] >= dots[1] - EPSILON;
+		return dots[2] >= dots[5] - this.EPSILON &&
+			dots[1] >= dots[2] - this.EPSILON &&
+			dots[0] >= dots[1] - this.EPSILON;
 	},
 
 	// Two matrices acting on Z^6 which act by scaling with
