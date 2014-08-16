@@ -20,7 +20,8 @@ var QuasiLattice = function (representation, VertexType) {
 	this.directions = [];
 	this.start_index_shrink = 0;
 	this.start_index_grow = 0;
-	/* At minimum, add some vertices. */
+	this.addVertSymmetric(V.zero(this.rep.DIMENSION));
+	this.addVertSymmetric(this.rep.CYCLIC_ELEMENT);
 };
 
 QuasiLattice.prototype = {

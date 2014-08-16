@@ -29,6 +29,8 @@ var ICOS_BASIS = (function () {
 var Icos = {
 	EPSILON: 1e-9,
 	BASIS: ICOS_BASIS,
+	DIMENSION: 6,
+	CYCLIC_ELEMENT: [1, 0, 0, 0, 0, 0],
 	testBasisOrthogonality: function () {
 		// Self-test for orthogonality
 		var m = M.mulMats(M.transpose(this.BASIS), this.BASIS);

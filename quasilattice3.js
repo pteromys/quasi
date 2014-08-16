@@ -34,10 +34,8 @@ Vertex.prototype.isAcceptableDirection = function () {
 
 // The quasilattice
 var QuasiLattice3 = function () {
-	QuasiLattice.call(this, Icos, Vertex);
 	this.glData = [];
-	this.addVertSymmetric([0,0,0,0,0,0]);
-	this.addVertSymmetric([1,0,0,0,0,0]);
+	QuasiLattice.call(this, Icos, Vertex);
 };
 QuasiLattice3.prototype = Object.create(QuasiLattice.prototype);
 QuasiLattice3.prototype.createVert = function (indices) {
