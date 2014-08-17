@@ -1,4 +1,4 @@
-importScripts('heap.js', 'linear.js');
+importScripts('heap.js', 'linear.js', 'cyclic.js', 'quasilattice.js');
 
 // Global variables because I haven't figured out where to put them
 var options = {
@@ -13,233 +13,135 @@ var screen_state = {
 // Constants
 var EPSILON = 1e-9;
 
-var Vertex = function (indices, quasilattice) {
-	this.lattice = quasilattice;
-	this.indices = indices.slice(); // Make a copy
-	this.xy = quasilattice.xy(indices);
-	this.displacement = quasilattice.displacement(indices, this.xy);
-	this.xy2 = V.dot(this.xy, this.xy);
+var Vertex = function (indices, rep) {
+	BaseVertex.call(this, indices, rep);
+	this.xy = this.coords.slice(0,2);
+	this.displacement = this.coords.slice(2);
+	this.r2 = V.dot(this.xy, this.xy);
 	this.d2 = V.dot(this.displacement, this.displacement);
-	this.r2 = this.d2 / quasilattice.variance;
+	this.nd2 = this.d2 / rep.variance;
+	this.weight = (1 + this.r2) * Math.exp(0.5 * this.nd2);
 };
-Vertex.prototype = {
-	toString: function () {
-		return this.indices.join(' ');
-	},
-	weight: function () {
-		//return 0.2 * this.xy2 + this.d2;
-		// Empirically, it doesn't seem necessary to go more than 3
-		// standard deviations out in order to fill local space
-		// with visibles. Visible threshold, set arbitrarily at dot size/50,
-		// is at sqrt(-4 ln 0.02), approximately 3.956.
-		// To go down to 1/100th of dot size is about 4.292.
-		return 2 * this.xy2 / this.lattice.r2 + this.r2;
-	},
+Vertex.prototype = Object.create(BaseVertex.prototype);
+Vertex.prototype.isAcceptableDirection = function () {
+	return true; //return this.d2 < 1.1 && this.r2 < DIRECTION_MAX_R2;
 };
-var QuasiLattice = function (n, target_radius) { // n = degree of symmetry
+
+var QuasiLattice2 = function (n) { // n = degree of symmetry
 	if (n < 2) { n = 2; }
-	this.n = n;
-	this.radius = target_radius || 5;
-	this.r2 = this.radius * this.radius;
-	this.achieved_radius = false;
-	this.weight_threshold = Math.pow(Math.sqrt(-4 * Math.log(this.radius/100)) - 1, 2);
+	var rep = Cyclic(n);
 	// Some constants
-	this.dotsize = 0.04 * this.radius;
-	this.variance = Math.pow(this.n / (Math.pow(5 * this.dotsize, 4)), 1/(this.n - 3)) * 0.5 / Math.PI;
-	// 2D basis elements
-	this.x = V.zero(n);
-	this.y = V.zero(n);
-	var norm = Math.sqrt(2/n);
-	if (n == 2) { norm = Math.sqrt(0.5); }
-	for (var i = 0; i < n; i++) {
-		this.x[i] = Math.cos(2 * Math.PI * i / n) * norm;
-		this.y[i] = Math.sin(2 * Math.PI * i / n) * norm;
-	}
-	if (n % 2) {
-		this.cot = 1/Math.tan(Math.PI / n);
-	} else if (n == 2) {
-		this.cot = -1; // Actual value is -Infinity but we don't need it.
-	} else {
-		this.cot = 1/Math.tan(2 * Math.PI / n);
-	}
-	// Vertex list
-	this.verts = [new Vertex(V.zero(n), this)];
-	this.border_verts = new Heap(this.verts, this.vertCmp);
-	this.vert_names = {};
-	this.vert_names[this.verts[0].toString()] = this.verts[0];
-	// Set up translation directions
-	this.directions = new Array(2*n);
-	for (var i = 0; i < n; i++) {
-		this.directions[i] = V.zero(n);
-		this.directions[i][i] = 1;
-		this.directions[i][(i+1)%n] = -1;
-		this.directions[i+n] = V.zero(n);
-		this.directions[i+n][i] = -1;
-		this.directions[i+n][(i+1)%n] = 1;
-	}
-	for (var i = 0; i < this.directions.length; i++) {
-		this.directions[i] = new Vertex(this.directions[i], this);
-	}
-	this.direction_threshold = Infinity;
+	this.n = n;
+	this.radius = 5; //target_radius || 5;
+	this.dotsize = 0.05 * this.radius;
+	rep.variance = Math.pow(this.n / (Math.pow(5 * this.dotsize, 4)), 1/(this.n - 3)) * 0.5 / Math.PI;
+	/*this.r2 = this.radius * this.radius;
+	this.achieved_radius = false;
+	this.weight_threshold = Math.pow(Math.sqrt(-4 * Math.log(this.radius/100)) - 1, 2);*/
+	QuasiLattice.call(this, rep, Vertex);
 	// Translation
 	this.offset = this.verts[0];
 };
-QuasiLattice.prototype = {
-	displacement: function (indices, xy) {
-		var v = indices.slice();
-		for (var i = 0; i < v.length; i++) {
-			v[i] -= this.x[i] * xy[0] + this.y[i] * xy[1];
+QuasiLattice2.prototype = Object.create(QuasiLattice.prototype);
+QuasiLattice2.prototype.draw = function (context, xy_view, offset, scale) {
+	// Set up context
+	var m = context.canvas;
+	var w = context.canvas.width = $(window).width();
+	var h = context.canvas.height = $(window).height();
+	var r = Math.sqrt(w*w + h*h)/2;
+	context = context.canvas.getContext('2d');
+	context.fillStyle = this.getGradient(context);
+	context.globalCompositeOperation = 'lighter';
+	context.translate(context.canvas.width/2, context.canvas.height/2);
+	scale = (scale || 1) * r / this.radius;
+	var cull = [0.5 * w / scale + this.dotsize,
+		0.5 * h / scale + this.dotsize];
+	var cull_scale = -4 * this.variance * Math.log(0.5 / (this.dotsize * scale));
+	context.scale(scale, -scale);
+	tracker.num_visible = 0;
+	tracker.num_seen = 0;
+	for (var j = 0; j < this.verts.length; j++) {
+		// Compute
+		if (this.verts[j].was_seen) { tracker.num_seen += 1; }
+		var xy = V.add(xy_view, V.add(this.verts[j].xy, offset.xy));
+		if (Math.abs(xy[0]) > cull[0] || Math.abs(xy[1]) > cull[1]) {
+			continue;
 		}
-		return v;
-	},
-	xy: function (indices) {
-		return [V.dot(this.x, indices), V.dot(this.y, indices)];
-	},
-	vertCmp: function (a, b) {
-		return (a.weight() < b.weight());
-	},
-	addVerts: function (v) {
-		// Search through neighbors of a border vertex v.
-		// Automatically select v from the queue if not given.
-		if (!v) {
-			v = this.border_verts.pop();
-			if (!v) { return false; }
+		var scl = V.add(this.verts[j].displacement, offset.displacement);
+		scl = V.dot(scl, scl);
+		if (scl > cull_scale) { continue; }
+		tracker.num_visible += 1;
+		this.verts[j].was_seen = true;
+		scl = this.dotsize * Math.exp(-0.25 * scl / this.variance);
+		// Draw
+		context.save();
+		context.translate(xy[0], xy[1]);
+		context.scale(scl, scl);
+		context.fillRect(-1, -1, 2, 2);
+		context.restore();
+	}
+};
+QuasiLattice2.prototype.render = function (start_at) {
+	var scale = (screen_state.radius || 200) / this.radius;
+	var cull_scale = -4 * this.rep.variance * Math.log(0.5 / (this.dotsize * scale));
+	var data = new Float64Array(3 * this.verts.length);
+	var index = 0;
+	for (var j = start_at || 0; j < this.verts.length; j++) {
+		// Compute sizes
+		if (Math.abs(this.verts[j].xy[0]) > 1.5 * this.radius) { continue; }
+		if (Math.abs(this.verts[j].xy[1]) > 1.5 * this.radius) { continue; }
+		// This can be slightly optimized using the binomial theorem.
+		var scl = V.add(this.verts[j].displacement, this.offset.displacement);
+		scl = V.dot(scl, scl);
+		if (scl > cull_scale) { continue; }
+		this.verts[j].was_seen = true;
+		scl = this.dotsize * Math.exp(-0.25 * scl / this.rep.variance);
+		// Draw
+		data[index++] = this.verts[j].xy[0];
+		data[index++] = this.verts[j].xy[1];
+		data[index++] = scl;
+	}
+	return data.subarray(0, index);
+};
+QuasiLattice2.prototype.reTranslate = function (xy) {
+	var t = this;
+	var cmpTranslators = function (a, b) {
+		axy = V.add(xy, V.add(a.xy, t.offset.xy));
+		ad = V.add(t.offset.displacement, a.displacement);
+		bxy = V.add(xy, V.add(b.xy, t.offset.xy));
+		bd = V.add(t.offset.displacement, b.displacement);
+		axy = Math.max(0, V.dot(axy, axy) - 6.25);
+		ad = V.dot(ad, ad);
+		bxy = Math.max(0, V.dot(bxy, bxy) - 6.25);
+		bd = V.dot(bd, bd);
+		return (ad - bd) + (axy - bxy);
+	};
+	var translator = this.verts[0];
+	for (var i = 0; i < this.directions.length; i++) {
+		if (cmpTranslators(translator, this.directions[i]) > 0) {
+			translator = this.directions[i];
 		}
-		var nv;
-		for (var i = 0; i < this.directions.length; i++) {
-			nv = this.addVertSymmetric(V.add(v.indices, this.directions[i].indices));
-		}
+	}
+	if (!V.isZero(translator.indices)) {
+		this.offset = new Vertex(V.add(this.offset.indices, translator.indices), this.rep);
 		return true;
-	},
-	addVert: function (indices) {
-		if (this.vert_names[indices.join(' ')]) { return false; }
-		var nv = new Vertex(indices, this);
-		this.verts.push(nv);
-		this.vert_names[nv.toString()] = nv;
-		if (nv.xy[0] > -EPSILON && nv.xy[1] >= this.cot * nv.xy[0]) {
-			this.border_verts.push(nv);
-		}
-		if (nv.weight() < this.direction_threshold + EPSILON) {
-			this.directions.unshift(nv);
-			if (nv.weight() < this.direction_threshold - EPSILON) {
-				this.direction_threshold = nv.weight();
-			}
-		}
-		if (nv) {
-			if (!this.achieved_radius && nv.xy2 > this.r2) {
-				this.achieved_radius = nv.indices;
-			};
-		}
-		return nv;
-	},
-	addVertSymmetric: function (indices) {
-		var nv;
-		for (var i = 0; i < this.n; i++) {
-			nv = this.addVert(indices);
-			nv = this.addVert(indices.map(function (x) { return -x; }));
-			V.rotate(indices);
-		}
-		return nv;
-	},
-	draw: function (context, xy_view, offset, scale) {
-		// Set up context
-		var m = context.canvas;
-		var w = context.canvas.width = $(window).width();
-		var h = context.canvas.height = $(window).height();
-		var r = Math.sqrt(w*w + h*h)/2;
-		context = context.canvas.getContext('2d');
-		context.fillStyle = this.getGradient(context);
-		context.globalCompositeOperation = 'lighter';
-		context.translate(context.canvas.width/2, context.canvas.height/2);
-		scale = (scale || 1) * r / this.radius;
-		var cull = [0.5 * w / scale + this.dotsize,
-			0.5 * h / scale + this.dotsize];
-		var cull_scale = -4 * this.variance * Math.log(0.5 / (this.dotsize * scale));
-		context.scale(scale, -scale);
-		tracker.num_visible = 0;
-		tracker.num_seen = 0;
-		for (var j = 0; j < this.verts.length; j++) {
-			// Compute
-			if (this.verts[j].was_seen) { tracker.num_seen += 1; }
-			var xy = V.add(xy_view, V.add(this.verts[j].xy, offset.xy));
-			if (Math.abs(xy[0]) > cull[0] || Math.abs(xy[1]) > cull[1]) {
-				continue;
-			}
-			var scl = V.add(this.verts[j].displacement, offset.displacement);
-			scl = V.dot(scl, scl);
-			if (scl > cull_scale) { continue; }
-			tracker.num_visible += 1;
-			this.verts[j].was_seen = true;
-			scl = this.dotsize * Math.exp(-0.25 * scl / this.variance);
-			// Draw
-			context.save();
-			context.translate(xy[0], xy[1]);
-			context.scale(scl, scl);
-			context.fillRect(-1, -1, 2, 2);
-			context.restore();
-		}
-	},
-	render: function () {
-		var scale = (screen_state.radius || 200) / this.radius;
-		var cull_scale = -4 * this.variance * Math.log(0.5 / (this.dotsize * scale));
-		var data = new Float64Array(3 * this.verts.length);
-		var index = 0;
-		for (var j = 0; j < this.verts.length; j++) {
-			// Compute sizes
-			if (Math.abs(this.verts[j].xy[0]) > 1.5 * this.radius) { continue; }
-			if (Math.abs(this.verts[j].xy[1]) > 1.5 * this.radius) { continue; }
-			// This can be slightly optimized using the binomial theorem.
-			var scl = V.add(this.verts[j].displacement, this.offset.displacement);
-			scl = V.dot(scl, scl);
-			if (scl > cull_scale) { continue; }
-			this.verts[j].was_seen = true;
-			scl = this.dotsize * Math.exp(-0.25 * scl / this.variance);
-			// Draw
-			data[index++] = this.verts[j].xy[0];
-			data[index++] = this.verts[j].xy[1];
-			data[index++] = scl;
-		}
-		return data.subarray(0, index);
-	},
-	reTranslate: function (xy) {
-		var t = this;
-		var cmpTranslators = function (a, b) {
-			axy = V.add(xy, V.add(a.xy, t.offset.xy));
-			ad = V.add(t.offset.displacement, a.displacement);
-			bxy = V.add(xy, V.add(b.xy, t.offset.xy));
-			bd = V.add(t.offset.displacement, b.displacement);
-			axy = Math.max(0, V.dot(axy, axy) - 6.25);
-			ad = V.dot(ad, ad);
-			bxy = Math.max(0, V.dot(bxy, bxy) - 6.25);
-			bd = V.dot(bd, bd);
-			return (ad - bd) + (axy - bxy);
-		};
-		var translator = this.verts[0];
-		for (var i = 0; i < this.directions.length; i++) {
-			if (cmpTranslators(translator, this.directions[i]) > 0) {
-				translator = this.directions[i];
-			}
-		}
-		if (!V.isZero(translator.indices)) {
-			this.offset = new Vertex(V.add(this.offset.indices, translator.indices), this);
-			return true;
-		} else {
-			return false;
-		}
-	},
-	wantsMoreVerts: function () {
-		if (!this.border_verts.first()) { return false; }
-		if (this.achieved_radius) {
-			return this.border_verts.first().weight() <= this.weight_threshold;
-		}
-		return true;
-	},
+	} else {
+		return false;
+	}
+};
+QuasiLattice2.prototype.wantsMoreVerts = function () {
+	return this.verts.length < 1000;
+	if (!this.border_verts.first()) { return false; }
+	if (this.achieved_radius) {
+		return this.border_verts.first().weight() <= this.weight_threshold;
+	}
+	return true;
 };
 
-self.reRender = function () {
+self.reRender = function (start_at) {
 	self.postMessage({
 		type: 'render',
-		points: lattice.render(),
+		points: lattice.render(start_at),
 		offset: lattice.offset.xy,
 	});
 };
@@ -251,7 +153,7 @@ self.onmessage = function (e) {
 	} else if (data.type == 'setSymmetry') {
 		if (options.n != data.n) {
 			options.n = data.n;
-			self.lattice = new QuasiLattice(options.n, options.r);
+			self.lattice = new QuasiLattice2(options.n, options.r);
 		}
 	} else if (data.type == 'setRadius') {
 		screen_state.radius = data.radius;
