@@ -293,8 +293,8 @@
 				);
 				if (!i) { return; }
 				// Move origin
-				var new_origin = Array.prototype.slice.apply(glc.glData,
-					[(i-1)*6*11, (i-1)*6*11 + 3]);
+				var new_origin = Array.prototype.slice.call(glc.glData,
+					(i-1)*6*11, (i-1)*6*11 + 3);
 				window.movable.uOriginExtra = V.add(V.add(
 					window.movable.uOriginExtra,
 					window.movable.uOrigin),
@@ -507,7 +507,7 @@
 					], this.uPMatrix)));
 				gl.drawArrays(gl.TRIANGLES, 0, Math.min(glc.num_verts, (1 << 21) * 6 - 6));
 				gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, glc.last_capture);
-				var clr = Array.prototype.slice.apply(glc.last_capture, []);
+				var clr = Array.prototype.slice.call(glc.last_capture);
 				return clr[0] + (clr[1] << 7) + (clr[2] << 14);
 			};
 			glc.draw = function (time_scheduled) {
@@ -553,7 +553,7 @@
 					function scaleColor(x) { return 1 / (1 + x * x * udz); }
 					function to255(x) { return Math.round(x * 255); }
 					for (var i = 0; i < glc.num_verts / 6; i++) {
-						var v = Array.prototype.slice.apply(glc.glData, [i*66, i*66 + 6]);
+						var v = Array.prototype.slice.call(glc.glData, i*66, i*66 + 6);
 						var p = M.mul(m, V.scale(V.add(v, uo), window.movable.scale).concat(1));
 						if (!(Math.abs(p[2]/p[3]) < 1)) { continue; }
 						var c = V.scale(V.add(v.slice(3,6), window.movable.uOriginColor), usc);
