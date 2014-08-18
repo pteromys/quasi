@@ -360,7 +360,6 @@
 
 		$(document).ready(function () {
 			// Init buttons
-			ButtonSystem.activateKeys({191: '#button_help'});
 			ButtonSystem.activateClickouts();
 			// MessageBox
 			window.message_box = new MessageBox('#messages');
@@ -857,7 +856,7 @@
 			on whose image \(A_5\) acts.)</p>
 		</div>
 	</div>
-	<a class="button icon button_root"
+	<a class="button icon button_root" data-key="QUESTION"
 		href="#help" id="button_help" title="Help">?</a>
 	<a class="button icon button_root"
 		href="#config" id="button_config" title="Settings">&#x2699;</a>

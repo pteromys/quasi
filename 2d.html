@@ -99,7 +99,6 @@
 		window.screen_radius = 1000;
 		window.options = {n: 5, r: 5};
 		$(document).ready(function () {
-			ButtonSystem.activateKeys();
 			var t_0 = null;
 			window.movable = new Movable();
 			movable.canAccelerate = function () {
@@ -274,9 +273,9 @@
 			and released under the <a href="http://unlicense.org/">Unlicense</a>.</p>
 		</div>
 	</div>
-	<a class="button icon button_root"
+	<a class="button icon button_root" data-key="QUESTION"
 		href="#help" id="button_help" title="Help">?</a>
-	<a class="button icon button_root"
+	<a class="button icon button_root" data-key="SPACE"
 		href="#config" id="button_config" title="Settings">&#x2699;</a>
 </body>
 </html>

@@ -121,13 +121,19 @@ var ButtonSystem = {
 				window.location = '#';
 			}
 		});
+		var bindings = {};
+		var KEYS = this.KEYS;
+		$('.button_root').each(function () {
+			var k = $(this).data('key');
+			if (!k) { return; }
+			if (k in KEYS) { k = KEYS[k]; }
+			bindings[k] = $(this);
+		});
+		this.activateKeys(bindings);
 	},
 	activateKeys: function (bindings) {
 		var t = this;
-		bindings = bindings || {
-			32: '#button_config',
-			191: '#button_help',
-		};
+		bindings = bindings || {};
 		$(window).on('keydown', function (e) {
 			if ($('.overlay').is(':target')) {
 				if (e.which == t.KEYS.ESC) {
@@ -153,7 +159,7 @@ var ButtonSystem = {
 		});
 	},
 };
-ButtonSystem.activateKeys = ButtonSystem.activateKeys.bind(ButtonSystem);
+ButtonSystem.activateRootButtons = ButtonSystem.activateRootButtons.bind(ButtonSystem);
 $(document).ready(ButtonSystem.activateRootButtons);
 
 return ButtonSystem;
