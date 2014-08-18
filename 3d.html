@@ -350,12 +350,10 @@
 				window.frame_manager.requestFrame();
 			});
 			$('#config_reset').on('click', function (e) {
-				e.preventDefault();
 				window.movable.moveReset();
 				window.frame_manager.requestFrame();
 			});
 			$('#config_addpoints').on('click', function (e) {
-				e.preventDefault();
 				window.lattice_worker.postMessage({type: 'addVerts', iterations: 5});
 			});
 		};
@@ -717,8 +715,12 @@
 			<ul>
 				<li><input type="checkbox" id="config_fp" /><label for="config_fp">First-person view</label></li>
 				<li><input type="checkbox" id="config_fog" checked="checked" /><label for="config_fog">Hide incompletely-drawn regions with fog</label></li>
-				<li><button id="config_reset"/>Reset view</button>
-					<button id="config_addpoints" disabled="disabled" />Draw more points</button></li>
+				<li>
+					<button type="button" id="config_reset"
+						/>Reset view</button>
+					<button type="button" id="config_addpoints"
+						disabled="disabled" />Draw more points</button>
+				</li>
 			</ul>
 		</form>
 	</div></div>
