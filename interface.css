@@ -138,8 +138,12 @@ input[type="checkbox"] {
 	text-align: center;
 	z-index: 10;
 }
-.messagebox > .box { max-height: none; }
-.messagebox > .box:empty { visibility: hidden; z-index: -1; }
+.messagebox > .box { max-height: 6em; text-align: center; }
+.messagebox > .box:empty {
+	visibility: hidden; z-index: -1; padding-top: 0em; padding-bottom: 0em;
+	transition: visibility 0s 0.1s, z-index 0s 0.1s,
+		padding-top 0.1s 0s, padding-bottom 0.1s 0s;
+}
 .message {
 	background: rgba(0, 0, 0, 0);
 	border-radius: 0.2em;
@@ -166,8 +170,8 @@ input[type="checkbox"] {
 	width: 5em;
 	height: 1em;
 	margin-left: 1em;
-	background: #000;
-	background: rgba(0, 0, 0, 0.5);
+	background: #666;
+	background: rgba(95, 95, 95, 0.5);
 	border-radius: 0.25em;
 	position: relative;
 }
@@ -176,6 +180,6 @@ input[type="checkbox"] {
 	width: 0em;
 	height: 1em;
 	border-radius: 0.25em;
-	background: #7bf;
-	background: rgba(127, 191, 255, 0.75);
+	background: #fff;
+	background: rgba(255, 255, 255, 0.75);
 }
