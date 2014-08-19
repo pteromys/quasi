@@ -68,13 +68,18 @@
 		};
 		var setupMovable = function () {
 			var m = new Movable();
-			m.velocity_keys[1] = [m.KEYS.DOWN, m.KEYS.UP]; // invert y-axis
-			m.velocity_keys[2] = [m.KEYS.Z, m.KEYS.SPACE]; // flying around
-			m.velocity_keys[3] = [189, 187]; // minus and plus
-			m.velocity_keys[4] = [173, 61]; // gecko minus and plus
-			m.velocity_keys[5] = [109, 107]; // possibly older gecko
-			m.velocity_keys[6] = ['nothing', 'press']; // fly by press and hold
-			m.velocity_keys[7] = [m.KEYS['<'], m.KEYS['>']]; // rolling the view
+			// invert y-axis
+			m.key_map[m.KEYS.DOWN].amount *= -1;
+			m.key_map[m.KEYS.UP].amount *= -1;
+			// roll the view
+			m.key_map[m.KEYS['<']] = {which: 2, amount: -1};
+			m.key_map[m.KEYS['>']] = {which: 2, amount: 1};
+			// zooming (gecko has had some weird keycodes)
+			m.key_map[189] = m.key_map[173] = m.key_map[109] = {which: 3, amount: -1};
+			m.key_map[187] = m.key_map[61] = m.key_map[107] = {which: 3, amount: 1};
+			// flying
+			m.key_map['press'] = m.key_map[m.KEYS.SPACE] = {which: 4, amount: 1};
+			m.key_map[m.KEYS.Z] = {which: 4, amount: -1};
 			m.uFog = [2, 1];
 			m.canAccelerate = function () {
 				return !($('.overlay').is(':target'));
@@ -208,15 +213,15 @@
 				}
 				var yaw = 0.003 * this.velocity[0] * dt;
 				var pitch = -0.003 * this.velocity[1] * dt;
-				var roll = 0.003 * this.velocity[7] * dt;
+				var roll = 0.003 * this.velocity[2] * dt;
 				this.moveTurn(yaw, pitch, roll);
 				// Translation
-				var vfly = this.velocity[2] + this.velocity[6];
+				var vfly = this.velocity[4];
 				if (vfly) {
 					this.moveFly(dt * vfly * 0.005);
 				}
 				// Zooming
-				var vzoom = this.velocity[3] + this.velocity[4] + this.velocity[5];
+				var vzoom = this.velocity[3];
 				if (vzoom) {
 					this.moveZoom(Math.exp(dt * vzoom * 0.002));
 				}
@@ -262,7 +267,7 @@
 							(1 - inertia) * yaw / (dt * 0.003);
 						m.velocity[1] = inertia * m.velocity[1] -
 							(1 - inertia) * pitch / (dt * 0.003);
-						m.velocity[7] = inertia * m.velocity[7] +
+						m.velocity[2] = inertia * m.velocity[2] +
 							(1 - inertia) * roll / (dt * 0.003);
 						m.velocity[3] = inertia * m.velocity[3] +
 							(1 - inertia) * (s - 1) / (dt * 0.002);
@@ -300,7 +305,7 @@
 					window.movable.uOrigin),
 					new_origin);
 				window.movable.uOrigin = V.scale(new_origin, -1);
-				window.movable.velocity[2] = window.movable.velocity[6] = 0;
+				window.movable.velocity[4] = 0;
 				window.frame_manager.requestFrame();
 			});
 			h.on('tripletap', function (e) {

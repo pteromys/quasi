@@ -2,10 +2,11 @@ var Movable = (function () {
 
 var Movable = function () {
 	this.velocity = [0, 0];
-	this.velocity_keys = [ // [decrease, increase]
-		[this.KEYS.LEFT, this.KEYS.RIGHT],
-		[this.KEYS.UP, this.KEYS.DOWN],
-	];
+	this.key_map = {};
+	this.key_map[this.KEYS.LEFT] = {which: 0, amount: -1};
+	this.key_map[this.KEYS.RIGHT] = {which: 0, amount: 1};
+	this.key_map[this.KEYS.UP] = {which: 1, amount: -1};
+	this.key_map[this.KEYS.DOWN] = {which: 1, amount: 1};
 	this.keys_down = {
 		"16": false,
 		"37": false,
@@ -64,13 +65,12 @@ Movable.prototype = {
 			return Math.max(-vmax, Math.min(t, vmax));
 		};
 		if (this.canAccelerate()) {
-			for (var i = 0; i < this.velocity_keys.length; i++) {
-				this.velocity[i] = this.velocity[i] || 0;
-				if (this.keys_down[this.velocity_keys[i][0]]) {
-					this.velocity[i] -= dv;
-				}
-				if (this.keys_down[this.velocity_keys[i][1]]) {
-					this.velocity[i] += dv;
+			for (var key in this.key_map) {
+				if (!this.key_map.hasOwnProperty(key)) { continue; }
+				var m = this.key_map[key];
+				this.velocity[m.which] = this.velocity[m.which] || 0;
+				if (this.keys_down[key]) {
+					this.velocity[m.which] += dv * m.amount;
 				}
 			}
 		}
@@ -85,20 +85,18 @@ Movable.prototype = {
 		}
 	},
 	isMoving: function () {
-		for (var i = 0; i < this.velocity_keys.length; i++) {
+		for (var i = 0; i < this.velocity.length; i++) {
 			if (this.velocity[i]) { return true; }
-			if (this.keys_down[this.velocity_keys[i][0]]) { return true; }
-			if (this.keys_down[this.velocity_keys[i][1]]) { return true; }
+		}
+		for (var key in this.key_map) {
+			if (this.key_map.hasOwnProperty(key) && this.keys_down[key]) { return true; }
 		}
 		return false;
 	},
 	bindHandlers: function (element) {
 		var t = this;
 		var press = function (e) {
-			function hasKey(a) {
-				return (a[0] == e.which || a[1] == e.which);
-			}
-			if (t.velocity_keys.some(hasKey)) {
+			if (t.key_map[e.which]) {
 				t.keys_down[e.which] = true;
 				t.decay_rate = t.decay_brake;
 				t.motionCallback();
