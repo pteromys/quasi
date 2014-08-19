@@ -40,6 +40,7 @@
 	<script type="text/javascript" src="hammer.min.js"></script>
 	<script type="text/javascript" src="linear.js"></script>
 	<script type="text/javascript" src="motion.js"></script>
+	<script type="text/javascript" src="movabletouch.js"></script>
 	<script type="text/javascript" src="frames.js"></script>
 	<script type="text/javascript" src="interface.js"></script>
 	<script type="text/javascript" src="gl.js"></script>
@@ -67,16 +68,14 @@
 			context.fill();
 		};
 		var setupMovable = function () {
-			var m = new Movable();
+			var m = new MovableTouch();
+			// set speeds
+			m.speed[0] = m.speed[1] = m.speed[2] = 0.001; // rotate about 1 rad/s
+			m.speed[3] = 0.001; // zoom about 4x per second
+			m.speed[4] = 0.002; // fly at 2 units per second
 			// invert y-axis
 			m.key_map[m.KEYS.DOWN].amount *= -1;
 			m.key_map[m.KEYS.UP].amount *= -1;
-			// roll the view
-			m.key_map[m.KEYS['<']] = {which: 2, amount: -1};
-			m.key_map[m.KEYS['>']] = {which: 2, amount: 1};
-			// zooming (gecko has had some weird keycodes)
-			m.key_map[189] = m.key_map[173] = m.key_map[109] = {which: 3, amount: -1};
-			m.key_map[187] = m.key_map[61] = m.key_map[107] = {which: 3, amount: 1};
 			// flying
 			m.key_map['press'] = m.key_map[m.KEYS.SPACE] = {which: 4, amount: 1};
 			m.key_map[m.KEYS.Z] = {which: 4, amount: -1};
@@ -88,7 +87,6 @@
 			m.isMoving = function () {
 				if (this.keys_down['press']) { return true; }
 				if (!(V.isZero(this.uOriginExtra))) { return true; }
-				if (this.is_hammer_busy) { return false; }
 				return this.isMovingSuper();
 			};
 			m.moveResetSuper = m.moveReset;
@@ -117,35 +115,40 @@
 				$('#config_fog').prop('checked', true);
 				$('#config_fp').prop('checked', false);
 			};
-			m.moveTurn = function (yaw, pitch, roll) {
+			m.moveTurn = function (yaw, pitch) {
 				yaw = yaw || 0;
 				pitch = pitch || 0;
-				roll = roll || 0;
 				var cxz = Math.cos(yaw);
 				var sxz = Math.sin(yaw);
 				var czy = Math.cos(pitch);
 				var szy = Math.sin(pitch);
-				var cxy = Math.cos(roll);
-				var sxy = Math.sin(roll);
-				this.uMVMatrix = M.mulMats(M.mulMats([
-						[cxy, sxy, 0, 0],
-						[-sxy, cxy,  0, 0],
-						[0,   0,    1, 0],
-						[0,   0,    0, 1],
-					], [
+				this.uMVMatrix = M.mulMats([
 						[cxz,        0,    sxz,       0],
 						[-sxz * szy, czy,  cxz * szy, 0],
 						[-sxz * czy, -szy, cxz * czy, 0], // -this.radius,
 						[0,          0,    0,         1],
-				]), this.uMVMatrix);
+				], this.uMVMatrix);
+			};
+			m.moveRoll = function (angle) {
+				angle = angle || 0;
+				var cxy = Math.cos(angle);
+				var sxy = Math.sin(angle);
+				this.uMVMatrix = M.mulMats([
+						[cxy, sxy, 0, 0],
+						[-sxy, cxy,  0, 0],
+						[0,   0,    1, 0],
+						[0,   0,    0, 1],
+					], this.uMVMatrix);
 			};
 			m.moveFly = function (distance) {
+				if (!distance) { return; }
 				this.uOrigin = V.add(
 					M.mul(M.transpose(this.uMVMatrix),
 						[0, 0, distance / this.scale]),
 					this.uOrigin);
 			};
 			m.moveZoom = function (amount) {
+				if (amount == 1) { return; }
 				this.scale = this.scale || 1.0;
 				this.scale *= amount;
 			};
@@ -207,85 +210,42 @@
 				if (this.keys_down['press']) {
 					var cx = $(window).width()/2;
 					var cy = $(window).height()/2;
-					var last = getLast();
-					this.velocity[0] = 0.6 * (last.centerX - cx) / this.screen_diameter || 0;
-					this.velocity[1] = 0.6 * (last.centerY - cy) / this.screen_diameter || 0;
+					var last = this._last_hammer_event;
+					if (last) {
+						this.velocity[0] = 0.002 * (last.center.x - cx) / this.screen_diameter || 0;
+						this.velocity[1] = 0.002 * (last.center.y - cy) / this.screen_diameter || 0;
+					}
 				}
-				var yaw = 0.003 * this.velocity[0] * dt;
-				var pitch = -0.003 * this.velocity[1] * dt;
-				var roll = 0.003 * this.velocity[2] * dt;
-				this.moveTurn(yaw, pitch, roll);
+				var yaw = this.velocity[0] * dt;
+				var pitch = -this.velocity[1] * dt;
+				var roll = this.velocity[2] * dt;
+				this.moveTurn(yaw, pitch);
+				this.moveRoll(roll);
 				// Translation
-				var vfly = this.velocity[4];
-				if (vfly) {
-					this.moveFly(dt * vfly * 0.005);
-				}
+				this.moveFly(dt * this.velocity[4]);
 				// Zooming
-				var vzoom = this.velocity[3];
-				if (vzoom) {
-					this.moveZoom(Math.exp(dt * vzoom * 0.002));
-				}
+				this.moveZoom(Math.exp(dt * this.velocity[3]));
 			};
 			m.moveReset();
-			var getLast = function () {
-				if (!h.session.movableLastParams) {
-					h.session.movableLastParams = { pointers: -1 };
+			m.movePan = function (x, y) {
+				if (!this.keys_down['press']) {
+					this.moveTurn(-1.5 * x / this.screen_diameter,
+						1.5 * y / this.screen_diameter);
 				}
-				return h.session.movableLastParams;
 			};
-			var h = new Hammer.Manager($('#main')[0]);
-			h.add(new Hammer.Pan({threshold: 0, pointers: 0}));
-			h.add(new Hammer.Rotate({threshold: 0}).recognizeWith(h.get('pan')));
-			h.add(new Hammer.Pinch({threshold: 0}).recognizeWith([h.get('pan'), h.get('rotate')]));
+			m.moveRotate = m.moveRoll;
+			m.movePinch = m.moveZoom;
+			var superTouchEnd = m.touchEnd;
+			m.touchEnd = function () {
+				superTouchEnd.call(this);
+				this.keys_down['press'] = false;
+			};
+			m.bindKeyboard(window);
+			m.bindTouch($('#main'));
+			var h = m.hammer;
 			h.add(new Hammer.Press({threshold: 10}).recognizeWith(h.get('pan')));
 			h.add(new Hammer.Tap({event: 'tripletap', taps: 3, posThreshold: 20}).recognizeWith(h.get('pan')));
 			h.add(new Hammer.Tap({event: 'doubletap', taps: 2, posThreshold: 20}).recognizeWith(h.get('pan')).requireFailure(h.get('tripletap')));
-			h.on('pan pinch rotate', function (e) {
-				var last = getLast();
-				var yaw = 0;
-				var pitch = 0;
-				// Avoid sudden jumps when a finger is added or removed
-				if (last.pointers == e.pointers.length) {
-					var dt = e.deltaTime - last.deltaTime;
-					if (dt) { // Only move if this isn't a duplicate event
-						// Rotation
-						if (!m.keys_down['press']) {
-							yaw = -1.5 * (e.deltaX - last.deltaX) / m.screen_diameter;
-							pitch = 1.5 * (e.deltaY - last.deltaY) / m.screen_diameter;
-						}
-						var roll = ((540 + e.rotation - last.rotation) % 360 - 180) * Math.PI / 180;
-						// Inhibit sudden 180-degree flip if fingers get swapped
-						if (!(Math.abs(roll) < 1.5)) { roll = 0; }
-						m.moveTurn(yaw, pitch, roll);
-						// Zooming
-						var s = e.scale/last.scale;
-						if (!(s > 0.1 && s < 10)) { s = 1; }
-						m.moveZoom(s);
-						// Set coasting velocities averaging over the last 100ms
-						var inertia = Math.max(0, 1 - 0.01 * dt);
-						m.velocity[0] = inertia * m.velocity[0] +
-							(1 - inertia) * yaw / (dt * 0.003);
-						m.velocity[1] = inertia * m.velocity[1] -
-							(1 - inertia) * pitch / (dt * 0.003);
-						m.velocity[2] = inertia * m.velocity[2] +
-							(1 - inertia) * roll / (dt * 0.003);
-						m.velocity[3] = inertia * m.velocity[3] +
-							(1 - inertia) * (s - 1) / (dt * 0.002);
-					}
-				}
-				// Save data for next time
-				last.deltaTime = e.deltaTime;
-				last.deltaX = e.deltaX;
-				last.deltaY = e.deltaY;
-				last.centerX = e.center.x;
-				last.centerY = e.center.y;
-				last.rotation = e.rotation;
-				last.scale = e.scale;
-				last.pointers = e.pointers.length;
-				m.decay_rate = m.decay_coast;
-				if (!e.isFinal) { m.is_hammer_busy = true; }
-				m.motionCallback();
-			});
 			h.on('press', function (e) {
 				m.keys_down['press'] = true;
 				m.decay_rate = m.decay_coast;
@@ -311,22 +271,6 @@
 			h.on('tripletap', function (e) {
 				$('#config_fp').click();
 			});
-			$('#main').on('wheel DOMMouseScroll mousewheel', function (e) {
-				e = e.originalEvent;
-				var delta_y = e.wheelDelta || (-e.detail);
-				if (Math.abs(delta_y) > 20) { delta_y /= 120; }
-				m.velocity[3] = delta_y;
-				m.decay_rate = m.decay_coast;
-				m.motionCallback();
-			});
-			$(window).on('mouseup mouseleave touchcancel touchend touchleave',
-				function (e) {
-					m.is_hammer_busy = false;
-					m.keys_down['press'] = false;
-				});
-			m.hammer = h;
-			m.bindHandlers(window);
-			$(window).off('.mMouse');
 			return m;
 		};
 		var setupForm = function () {
@@ -445,6 +389,8 @@
 			glc.resizeCallback = function (w, h) {
 				window.movable.screen_diameter = this.screen_diameter = Math.sqrt(w*w + h*h);
 				var ir = 1.5/this.screen_diameter;
+				window.movable.touch_map.pan_x.speed = -ir;
+				window.movable.touch_map.pan_y.speed = -ir;
 				this.uPMatrix = M.fromGL4(this.projectionMatrix(ir*w, ir*h, 0.1, 1000));
 				window.frame_manager.requestFrame();
 			};

@@ -33,8 +33,10 @@
 	</style>
 	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
 	<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+	<script type="text/javascript" src="hammer.min.js"></script>
 	<script type="text/javascript" src="heap.js"></script>
 	<script type="text/javascript" src="motion.js"></script>
+	<script type="text/javascript" src="movabletouch.js"></script>
 	<script type="text/javascript" src="frames.js"></script>
 	<script type="text/javascript" src="interface.js"></script>
 	<script type="text/javascript">
@@ -100,15 +102,16 @@
 		window.options = {n: 5, r: 5};
 		$(document).ready(function () {
 			var t_0 = null;
-			window.movable = new Movable();
+			window.movable = new MovableTouch();
 			movable.canAccelerate = function () {
 				return !($('.overlay').is(':target'));
 			};
-			movable.bindHandlers(window);
+			movable.bindKeyboard(window);
+			movable.bindTouch($('#canvascontainer'));
 			movable.scaled_position = [0, 0];
+			var superMoveReset = movable.moveReset;
 			movable.moveReset = function () {
-				this.position[0] = this.position[1] = 0;
-				this.velocity[0] = this.velocity[1] = 0;
+				superMoveReset.call(this);
 				window.renderWorker.postMessage({type: 'moveReset'});
 			};
 			window.renderWorker = new Worker('projector.js');
@@ -204,8 +207,7 @@
 				var r = window.screen_radius =
 					Math.sqrt(window.innerWidth * window.innerWidth +
 					window.innerHeight * window.innerHeight)/2;
-				movable.v_walk = 0.0006 * r;
-				movable.v_run = 0.0024 * r;
+				movable.speed[0] = movable.speed[1] = 0.0006 * r;
 				resizeLocal();
 				window.renderWorker.postMessage({
 					type: 'setRadius',

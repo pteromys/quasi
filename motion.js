@@ -1,7 +1,8 @@
 var Movable = (function () {
 
 var Movable = function () {
-	this.velocity = [0, 0];
+	this.velocity = [0, 0]; // velocity in user units (e.g. pixels/msec)
+	this.speed = [1, 1]; // speed scale in user units
 	this.key_map = {};
 	this.key_map[this.KEYS.LEFT] = {which: 0, amount: -1};
 	this.key_map[this.KEYS.RIGHT] = {which: 0, amount: 1};
@@ -47,30 +48,31 @@ Movable.prototype = {
 	DOUBLETAP_THRESHOLD: 300,
 	TAP_MOVE_THRESHOLD: 16,
 	default_dt: 16,
-	v_walk: 0.5,
-	v_run: 2,
-	decay_coast: 0.002,
-	decay_brake: 0.01,
+	run_multiplier: 4,
+	decay_coast: 0.002, // stop in about 0.5s
+	decay_brake: 0.01, // stop in about 0.1s
 
 	updateVelocity: function (dt) {
 		dt = dt || this.default_dt;
-		var vmax = this.v_walk;
-		if (this.keys_down[this.KEYS.SHIFT]) { vmax = this.v_run; }
-		var dv = 0.012 * vmax * dt;
-		var decay = this.decay_rate * vmax * dt;
-		var clampAndDecay = function (t) {
+		var vmax = 1;
+		if (this.keys_down[this.KEYS.SHIFT]) { vmax *= this.run_multiplier; }
+		var m = this;
+		var clampAndDecay = function (t, i) {
+			var v_bound = vmax * (m.speed[i] || 1);
+			var decay = v_bound * m.decay_rate * dt;
 			if (t < -decay) { t += decay; }
 			else if (t > decay) { t -= decay; }
 			else { t = 0; }
-			return Math.max(-vmax, Math.min(t, vmax));
+			return Math.max(-v_bound, Math.min(t, v_bound));
 		};
 		if (this.canAccelerate()) {
 			for (var key in this.key_map) {
 				if (!this.key_map.hasOwnProperty(key)) { continue; }
-				var m = this.key_map[key];
-				this.velocity[m.which] = this.velocity[m.which] || 0;
+				var km = this.key_map[key];
+				this.velocity[km.which] = this.velocity[km.which] || 0;
 				if (this.keys_down[key]) {
-					this.velocity[m.which] += dv * m.amount;
+					this.velocity[km.which] +=
+						0.012 * vmax * (this.speed[km.which] || 1) * km.amount * dt;
 				}
 			}
 		}
@@ -93,7 +95,11 @@ Movable.prototype = {
 		}
 		return false;
 	},
-	bindHandlers: function (element) {
+	bind: function (element) {
+		this.bindKeyboard(element);
+		this.bindTouch(element);
+	},
+	bindKeyboard: function (element) {
 		var t = this;
 		var press = function (e) {
 			if (t.key_map[e.which]) {
@@ -120,6 +126,13 @@ Movable.prototype = {
 				}
 			}
 		};
+		element = $(element);
+		element.on('keydown.mKeyboard', press);
+		element.on('keyup.mKeyboard', release);
+		element.on('blur.mKeyboard mouseleave.mKeyboard', releaseAll);
+	},
+	bindTouch: function (element) {
+		var t = this;
 		var mousePress = function (e) {
 			if (!t.canAccelerate()) { return; }
 			if ($(e.target).is('a[href], input, select, textarea, button')) { return; }
@@ -185,9 +198,6 @@ Movable.prototype = {
 			t.motionCallback();
 		};
 		element = $(element);
-		element.on('keydown.mKeyboard', press);
-		element.on('keyup.mKeyboard', release);
-		element.on('blur.mKeyboard mouseleave.mKeyboard', releaseAll);
 		element.on('mousedown.mMouse touchstart.mMouse', mousePress);
 		element.on('blur.mMouse mouseup.mMouse mouseleave.mMouse touchend.mMouse touchcancel.mMouse', mouseRelease);
 		element.on('mousemove.mMouse touchmove.mMouse', mouseMove);
