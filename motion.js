@@ -224,6 +224,7 @@ Movable.prototype = {
 	},
 	moveCoast: function () {
 		if (this.last_dt && this.last_motion) {
+			this.decay_rate = this.decay_coast;
 			this.velocity[0] = this.last_motion[0] / this.last_dt;
 			this.velocity[1] = this.last_motion[1] / this.last_dt;
 			this.last_motion[0] = 0;
