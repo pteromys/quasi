@@ -564,8 +564,8 @@
 				try {
 					glc.bindCanvas($('#main')[0]);
 				} catch (e) {
-					window.message_box.show('GL: ' + e, 'error');
-					window.message_box.show('Falling back to emulation.', 'warning');
+					window.message_box.post('GL: ' + e, 'error');
+					window.message_box.post('Falling back to emulation.', 'warning');
 					glc.gl = null;
 					glc.draw = window.frame_manager.drawCallback = glc.emulatedDraw;
 					glc.pick = glc.emulatedPick;
@@ -639,9 +639,9 @@
 					movable.uFog[0] = 0.7 * data.next_weight;
 					requestMorePoints((glc.screen_diameter || 512) / Math.sqrt(data.next_weight));
 				} else if (data.type == 'message') {
-					window.message_box.show(data.message, data.message_class);
+					window.message_box.post(data.message, data.message_class);
 				} else {
-					window.message_box.show('Window ignored message of type ' + data.type, 'debug warning');
+					window.message_box.post('Window ignored message of type ' + data.type, 'debug warning');
 				}
 			};
 			requestMorePoints();

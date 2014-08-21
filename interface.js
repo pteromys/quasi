@@ -191,7 +191,7 @@ var MessageBox = function (selector, debug) {
 
 var ProgressBar = function (parent_box, text) {
 	this.parent_box = parent_box;
-	this.msgdiv = parent_box.show(text, 'progress', 86400000);
+	this.msgdiv = parent_box.post(text, 'progress', 86400000);
 	this.msgdiv.append($('<div class="progressbar"><div></div></div>'));
 };
 
@@ -217,7 +217,7 @@ MessageBox.prototype = {
 			window.setTimeout(this.del.bind(this, msg), 150);
 		}
 	},
-	show: function (text, cls, expiry) {
+	post: function (text, cls, expiry) {
 		var msg = $('<div class="message active">').text(text).addClass(cls);
 		if (msg.hasClass('debug') && !this.debug) { return $(); }
 		$(this.panel).append(msg);
