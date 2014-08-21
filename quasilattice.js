@@ -79,7 +79,7 @@ QuasiLattice.prototype = {
 	},
 	addVertsGrow: function () {
 		var limit = this.verts.length;
-		if (!this.rep.actGrow) { return; }
+		if (!this.rep.actExpand) { return; }
 		for (var i = this.start_index_grow; i < limit; i++) {
 			if (!this.verts[i].v_grown) {
 				this.verts[i].v_grown = this.addVert(this.rep.actExpand(this.verts[i].indices));
