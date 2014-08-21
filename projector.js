@@ -9,6 +9,7 @@ var lattice = null;
 var screen_state = {
 	radius: 1000,
 };
+self.active = true;
 
 // Constants
 var EPSILON = 1e-9;
@@ -34,7 +35,7 @@ var QuasiLattice2 = function (n) { // n = degree of symmetry
 	this.n = n;
 	this.radius = 5; //target_radius || 5;
 	this.dotsize = 0.05 * this.radius;
-	rep.variance = Math.pow(this.n / (Math.pow(5 * this.dotsize, 4)), 1/(this.n - 3)) * 0.5 / Math.PI;
+	rep.variance = Math.pow((rep.DIMENSION_HIDDEN + 3) / (Math.pow(5 * this.dotsize, 4)), 1/rep.DIMENSION_HIDDEN) * 0.5 / Math.PI;
 	/*this.r2 = this.radius * this.radius;
 	this.achieved_radius = false;
 	this.weight_threshold = Math.pow(Math.sqrt(-4 * Math.log(this.radius/100)) - 1, 2);*/
@@ -145,6 +146,27 @@ self.reRender = function (start_at) {
 		offset: lattice.offset.xy,
 	});
 };
+self.dump = function (source) {
+	if (!self.active) { return; }
+	source = source || 'dump';
+	self.lattice.verts.sort(function (a, b) { return a.weight - b.weight; });
+	self.postMessage({
+		type: 'update',
+		"source": source,
+		data: self.lattice.verts.map(function (x) {
+			return [x.xy, x.displacement];
+		}),
+		translators: self.lattice.directions.map(function (x) {
+			return [x.xy, x.displacement];
+		}),
+		next_weight: self.lattice.border_verts.first().weight,
+		next_radius: self.lattice.border_verts.first().r2,
+		variance: self.lattice.rep.variance,
+		dim_hidden: self.lattice.rep.DIMENSION_HIDDEN,
+		scale_powers: self.lattice.rep.SCALE_POWERS,
+		scale_factors: self.lattice.rep.SCALE_FACTORS,
+	});
+};
 
 self.onmessage = function (e) {
 	var data = e.data;
@@ -157,20 +179,20 @@ self.onmessage = function (e) {
 		}
 	} else if (data.type == 'setRadius') {
 		screen_state.radius = data.radius;
-		self.reRender();
+		self.dump();
 	} else if (data.type == 'addVerts') {
 		self.lattice.addVerts();
-		self.reRender();
+		self.dump();
 		if (self.lattice.wantsMoreVerts()) {
 			self.postMessage({type: 'vertRequest', count: self.lattice.verts.length});
 		}
 	} else if (data.type == 'render') {
-		self.reRender();
+		self.dump();
 	} else if (data.type == 'moveReset') {
 		self.lattice.offset = self.lattice.verts[0];
-		self.reRender();
+		self.dump();
 	} else if (data.type == 'reTranslate') {
-		if (self.lattice.reTranslate(data.xy)) { self.reRender(); }
+		if (self.lattice.reTranslate(data.xy)) { self.dump(); }
 		self.postMessage({type: 'translationDone'});
 	} else {
 		self.postMessage({

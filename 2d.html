@@ -10,7 +10,7 @@
 		body { background: #000; }
 		canvas {
 			position: absolute;
-			top: 0px; left: 0px;
+			top: 0px; left: 0px; right: 0px; bottom: 0px;
 			opacity: 0;
 			z-index: 1;
 			transition: opacity 10s 0.2s;
@@ -34,6 +34,7 @@
 	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
 	<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
 	<script type="text/javascript" src="hammer.min.js"></script>
+	<script type="text/javascript" src="linear.js"></script>
 	<script type="text/javascript" src="heap.js"></script>
 	<script type="text/javascript" src="motion.js"></script>
 	<script type="text/javascript" src="movabletouch.js"></script>
@@ -46,186 +47,241 @@
 			context.fill();
 		};
 		var DEGREE_LIMIT = 23;
-		var BLIT_LIMIT = 100;
-		var renderData = function (data, canvas) {
+		var draw = function () {
+			window.movable.update(this.dt);
+			window.movable.moveAdjust();
 			// Set up context
+			var canvas = $('#one')[0];
+			canvas.width = $(window).width();
+			canvas.height = $(window).height();
 			var context = canvas.getContext('2d');
+			var data = window.current_data;
 			context.save();
 			var gradient = context.createRadialGradient(0, 0, 0, 0, 0, 1);
 			gradient.addColorStop(0, '#fff');
 			gradient.addColorStop(0.5, '#ff0');
 			gradient.addColorStop(1, '#000');
-			var r = canvas.width / 3;
 			context.fillStyle = gradient;
 			context.globalCompositeOperation = 'lighter';
 			context.translate(canvas.width/2, canvas.height/2);
+			var r = window.screen_radius;
 			var scale = r / window.options.r;
+			var s = window.movable.scale;
 			context.scale(scale, -scale);
-			var j = 0;
-			for (var i = window.current_data_index; i < data.length && j < BLIT_LIMIT; i++, j++) {
+			for (var i = 0; i < data.length; i++) {
+				// 0.25 = dotsize * radius. Get parameters later.
+				var d2 = window.movable.getPointOffset(data[i][1]);
+				d2 = 0.25 * Math.exp(-0.25 * d2 / window.variance);
 				context.save();
-				context.translate(data[i], data[i+1]);
-				i += 2;
-				context.scale(data[i], data[i]);
+				context.translate(
+					(data[i][0][0] + window.movable.position[0]) * window.movable.scale,
+					(data[i][0][1] + window.movable.position[1]) * window.movable.scale);
+				context.scale(d2, d2);
 				context.fillRect(-1, -1, 2, 2);
 				context.restore();
 			}
-			window.current_data_index = i;
 			context.restore();
-			return i < data.length;
-		};
-		var swapBuffers = function () {
-			$('canvas').toggleClass('active');
-		}
-		var resetActiveBuffer = function () {
-			$('canvas.active').prop({
-				width: 3 * window.screen_radius,
-				height: 3 * window.screen_radius,
-			});
+			return window.movable.isMoving();
 		};
 		var resetZoom = function () {
 			$('meta[name="viewport"]').attr('content', 'width=device-width, initial-scale=1');
 		};
-		window.tracker = {
-			num_verts: 0,
-			next_weight: 0,
-			threshold_weight: Infinity,
-			num_visible: 0,
-			num_seen: 0,
-		};
 		window.current_n = 5;
 		window.current_data = [];
-		window.current_data_index = 0;
 		window.done_threshold = 0;
-		window.offsets = {one: [0, 0], two: [0, 0]};
 		window.screen_radius = 1000;
 		window.options = {n: 5, r: 5};
 		$(document).ready(function () {
-			var t_0 = null;
+			window.message_box = new MessageBox('#messages');
 			window.movable = new MovableTouch();
+			// We flip the y axis because mathematicians like the y axis up
+			// Then we flip both axes again to use position subtractively
+			// The result is to invert the x axis.
+			movable.key_map[movable.KEYS.LEFT].amount *= -1;
+			movable.key_map[movable.KEYS.RIGHT].amount *= -1;
+			movable.touch_map.pan_x.speed = 1;
 			movable.canAccelerate = function () {
 				return !($('.overlay').is(':target'));
 			};
 			movable.bindKeyboard(window);
 			movable.bindTouch($('#canvascontainer'));
-			movable.scaled_position = [0, 0];
+			movable.speed[0] = movable.speed[1] = 0.002; // move 2 units/sec
+			movable.speed[2] = 0.001; // rotate 1 rad/sec
+			movable.speed[3] = 0.001; // zoom about 4x per sec
+			movable.translators = [];
 			var superMoveReset = movable.moveReset;
 			movable.moveReset = function () {
 				superMoveReset.call(this);
-				window.renderWorker.postMessage({type: 'moveReset'});
+				this.scale = 1;
+				this.current_offset = V.zero(this.dim_hidden);
+				this.scale2_unseen = this.current_offset.map(function () { return 1; });
+				window.frame_manager.requestFrame();
+			};
+			movable.movePan = function (x, y) {
+				var s = window.options.r / window.screen_radius;
+				this.position[0] += x * s;
+				this.position[1] -= y * s;
+			};
+			movable.moveZoom = function (amount) {
+				if (!this.scale_powers) { return; }
+				if (amount == 1) { return; }
+				if (!(amount > 1e-6 && amount < 1e6)) { return; }
+				this.scale = this.scale || 1.0;
+				this.scale *= amount;
+				for (var i = 0; i < this.current_offset.length; i++) {
+					this.scale2_unseen[i] = Math.pow(this.scale, 2 * this.scale_powers[i]);
+				}
+			};
+			movable.movePinch = movable.moveZoom;
+			var superMove = movable.move;
+			movable.move = function (dt) {
+				superMove.call(this, dt);
+				this.moveZoom(Math.exp(dt * this.velocity[3]));
+			};
+			movable.moveAdjust = function () {
+				if (window.options.n == 2) { this.position[1] = 0; }
+				// Rezooming
+				if (this.scale_powers) {
+					var s2 = this.scale * this.scale;
+					if (s2 > this.scale_factors[0]) {
+						this.position[0] *= this.scale_factors[0];
+						this.position[1] *= this.scale_factors[1];
+						for (var i = 0; i < this.current_offset.length; i++) {
+							this.current_offset[i] *= this.scale_factors[i+2];
+						}
+						this.moveZoom(1/this.scale_factors[0]);
+					} else if (s2 * this.scale_factors[0] < 1) {
+						this.position[0] /= this.scale_factors[0];
+						this.position[1] /= this.scale_factors[1];
+						for (var i = 0; i < this.current_offset.length; i++) {
+							this.current_offset[i] /= this.scale_factors[i+2];
+						}
+						this.moveZoom(this.scale_factors[0]);
+					}
+				}
+				this.reTranslate();
+			};
+			movable.getPointOffset = function (p) {
+				var d2 = 0;
+				var diff = 0;
+				for (var j = 0; j < p.length; j++) {
+					diff = p[j] + window.movable.current_offset[j];
+					d2 += diff * diff * window.movable.scale2_unseen[j];
+				}
+				return d2;
 			};
 			window.renderWorker = new Worker('projector.js');
 			window.renderWorker.onmessage = function (e) {
 				var data = e.data;
-				if (data.type == '') {
-				} else if (data.type == 'render') {
-				var active_ready = (window.current_data_index >= window.current_data.length || window.current_data_index >= window.done_threshold);
-					window.current_data = data.points;
-					window.done_threshold = window.current_data_index + 3 * BLIT_LIMIT;
-					window.current_data_index = 0;
-					if (active_ready) { swapBuffers(); }
-					resetActiveBuffer();
-					window.offsets[$('canvas.active').prop('id')] = data.offset;
-					window.sprite_manager.requestFrame();
-				} else if (data.type == 'vertRequest') {
-					this.postMessage({type: 'addVerts'});
-				} else if (data.type == 'translationDone') {
-					translation_in_progress = false;
-					if (translation_queued) {
-						translation_queued = false;
-						window.reTranslate();
+				if (data.type == 'update') {
+					window.current_data = data.data;
+					window.movable.translators = data.translators;
+					var old_dim_hidden = window.movable.dim_hidden;
+					window.movable.dim_hidden = data.dim_hidden;
+					if (data.dim_hidden != old_dim_hidden) {
+						window.movable.moveReset();
 					}
+					window.movable.scale_powers = data.scale_powers.slice(2);
+					window.movable.scale_factors = data.scale_factors;
+					window.variance = data.variance;
+					window.frame_manager.requestFrame();
+					window.requestMorePoints((window.screen_radius || 512) / Math.sqrt(data.next_weight), data.next_radius);
+					console.log(data.source + ': ' + data.data.length + ' ' + data.next_weight + ' ' + data.next_radius);
+				} else if (data.type == 'message') {
+					window.message_box.post(data.message, data.message_class);
 				} else {
-					// Show a message box...
+					window.message_box.post('Window ignored message of type ' + data.type, 'debug warning');
 				}
 			};
 			window.replaceLattice = function (n, radius) {
 				window.current_n = n;
+				// Init lattice
+				window.requestMorePoints = (function () {
+					var LIMIT_SIZE = 200;
+					var LIMIT_TIME = 2000;
+					var LIMIT_DIST = 5;
+					var finalized = false;
+					var start_time = 0;
+					var distance_reached = 0;
+					var progress_bar;
+					return function (neighbor_size, neighbor_distance) {
+						if (finalized) {
+							$('#config_addpoints').prop('disabled', false);
+							if (progress_bar) { progress_bar.set(1); }
+							return;
+						}
+						if (!progress_bar) {
+							progress_bar = window.message_box.makeProgress('Finding points...');
+							progress_bar.set(0.1);
+						}
+						if (!start_time) { start_time = (new Date()).valueOf(); }
+						if (neighbor_distance > distance_reached) {
+							distance_reached = neighbor_distance;
+						}
+						var progress = Math.max(0,
+							((new Date()).valueOf() - start_time)/LIMIT_TIME,
+							Math.min(LIMIT_SIZE/neighbor_size, 1) +
+							Math.min(distance_reached/LIMIT_DIST, 1)) / 2;
+						console.log(LIMIT_SIZE/neighbor_size, distance_reached/LIMIT_DIST);
+						progress_bar.set(0.1 + progress * 0.8);
+						if (progress >= 1) {
+							finalized = true;
+						}
+						window.renderWorker.postMessage({type: 'addVerts'});
+					};
+				})();
 				window.renderWorker.postMessage({
 					type: 'setSymmetry',
 					"n": n,
 				});
 				window.renderWorker.postMessage({type: 'addVerts'});
 				window.movable.moveReset();
-				//movable.scaled_position[0] = movable.scaled_position[1] = 0;
 				resetZoom();
-				resizeTotal();
+				resizeCallback();
 			};
-			window.translation_in_progress = false;
-			window.translation_queued = false;
-			window.reTranslate = function () {
-				if (!translation_in_progress) {
-					window.renderWorker.postMessage({
-						type: 'reTranslate',
-						xy: movable.scaled_position,
-					});
-					translation_in_progress = true;
-				} else {
-					translation_queued = true;
+			window.movable.reTranslate = function () {
+				if (this.disable_recentering) { return; }
+				var s2 = this.scale * this.scale;
+				var m = this;
+				function dirNiceness(v) {
+					var x = V.add(v[0], m.position.slice(0,2));
+					var y = V.add(v[1], m.current_offset);
+					x = V.dot(x, x) * s2;
+					y = V.dot(y, y) / s2;
+					return x + 9 * y;
+				}
+				var new_niceness = Infinity;
+				var niceness = Infinity;
+				if (this.translators.length) {
+					var dir = this.translators[0];
+					for (var i = 0; i < this.translators.length; i++) {
+						new_niceness = dirNiceness(this.translators[i]);
+						if (new_niceness < niceness) {
+							dir = this.translators[i];
+							niceness = new_niceness;
+						}
+					}
+					if (dir != this.translators[0]) {
+						this.position[0] += dir[0][0];
+						this.position[1] += dir[0][1];
+						this.current_offset = V.add(dir[1], this.current_offset);
+					}
 				}
 			};
-			var fillCanvas = function () {
-				var ans = renderData(window.current_data, $('canvas.active')[0]);
-				window.frame_manager.requestFrame();
-				return ans;
-			};
-			window.sprite_manager = new FrameManager(fillCanvas);
-			var draw = function () {
-				var draw_again = false;
-				// Keyboard and mouse motion
-				movable.update(this.dt);
-				if (movable.isMoving()) { draw_again = true; }
-				// Draw
-				var scale = window.screen_radius / window.options.r;
-				$('canvas').each(function (i, canvas) {
-					$(canvas).css({
-						width: 3 * window.screen_radius,
-						height: 3 * window.screen_radius,
-					});
-					var transform = [
-						-movable.position[0] + scale * window.offsets[canvas.id][0] -
-							$(canvas).width()/2 + $('#canvascontainer').width()/2,
-						-movable.position[1] - scale * window.offsets[canvas.id][1] -
-							$(canvas).height()/2 + $('#canvascontainer').height()/2,
-					];
-					transform = 'translate(' + transform[0] + 'px, ' + transform[1] + 'px)';
-					$(canvas).css({
-						"transform": transform,
-						"-moz-transform": transform,
-						"-webkit-transform": transform,
-					});
-				});
-				// Translate
-				window.reTranslate();
-				// Update tracker
-				$('#worst').text(tracker.num_visible + '/' + tracker.num_seen + '/' + tracker.num_verts+ ' ' + tracker.next_weight + '/' + tracker.threshold_weight);
-				// Return
-				return draw_again;
-			};
 			window.frame_manager = new FrameManager(draw);
-			var resizeTotal = function () {
+			var resizeCallback = function () {
 				var r = window.screen_radius =
 					Math.sqrt(window.innerWidth * window.innerWidth +
 					window.innerHeight * window.innerHeight)/2;
-				movable.speed[0] = movable.speed[1] = 0.0006 * r;
-				resizeLocal();
-				window.renderWorker.postMessage({
-					type: 'setRadius',
-					radius: r,
-				});
-			};
-			var resizeLocal = function () {
-				var r = window.screen_radius;
-				// We flip the y axis because mathematicians like the y axis up
-				// Then we flip both axes again to use position subtractively
-				movable.scaled_position[0] = -movable.position[0] * window.options.r / r;
-				movable.scaled_position[1] = movable.position[1] * window.options.r / r;
-				if (window.options.n == 2) { movable.scaled_position[1] = 0; }
+				var s = window.options.r / r;
+				window.movable.touch_map.pan_x.speed = s;
+				window.movable.touch_map.pan_y.speed = -s;
 				window.frame_manager.requestFrame();
 			};
-			movable.motionCallback = resizeLocal;
-			$(window).on('resize', resizeTotal);
-			window.draw = draw;
+			movable.motionCallback = function () {
+				window.frame_manager.requestFrame();
+			};
+			$(window).on('resize', resizeCallback);
 			// Activate the form
 			var replacement_form = new ActiveForm($('#form_config'));
 			replacement_form.field_processors.n = function (field) {
@@ -254,6 +310,7 @@
 		</canvas>
 		<canvas id="two"></canvas>
 	</div>
+	<div id="messages" class="messagebox"></div>
 	<div id="worst" style="position: absolute; z-index: 10; width: 100%; height: 1em; left:0px; top:0px; color: #fff;"></div>
 	<div id="config" class="overlay"><div class="box">
 		<h2>Choose symmetry</h2>

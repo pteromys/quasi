@@ -13,6 +13,14 @@ BaseVertex.prototype = {
 // The quasilattice
 var QuasiLattice = function (representation, VertexType) {
 	this.rep = representation;
+	if (this.rep.SCALE_FACTORS) {
+		var b = Math.log(this.rep.SCALE_FACTORS[0]);
+		if (b > this.rep.EPSILON) {
+			this.rep.SCALE_POWERS = this.rep.SCALE_FACTORS.map(function (x) {
+				return Math.log(Math.abs(x)) / b;
+			});
+		}
+	}
 	this.Vertex = VertexType;
 	this.verts = [];
 	this.border_verts = new Heap([], this.vertCmp);
