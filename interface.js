@@ -152,7 +152,7 @@ var ButtonSystem = {
 		});
 	},
 	activateClickouts: function () {
-		$('body').on('click', '.overlay', function (e) {
+		$('body').on('click.clickout', '.overlay', function (e) {
 			if (e.target == this) { // i.e. if not bubbled
 				clickElement($(e.target).find('.button_close'));
 			}
@@ -161,6 +161,7 @@ var ButtonSystem = {
 };
 ButtonSystem.activateRootButtons = ButtonSystem.activateRootButtons.bind(ButtonSystem);
 $(document).ready(ButtonSystem.activateRootButtons);
+$(document).ready(ButtonSystem.activateClickouts);
 
 return ButtonSystem;
 })();
