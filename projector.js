@@ -105,7 +105,8 @@ self.onmessage = function (e) {
 	} else {
 		self.postMessage({
 			type: 'message',
-			message: 'Discarded message of type: ' + data.type,
+			message: 'Worker discarded message of type: ' + data.type,
+			message_class: 'debug warning',
 			destination: data.destination,
 			source: data.source,
 		});
