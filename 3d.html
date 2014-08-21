@@ -44,6 +44,7 @@
 	<script type="text/javascript" src="frames.js"></script>
 	<script type="text/javascript" src="interface.js"></script>
 	<script type="text/javascript" src="gl.js"></script>
+	<script type="text/javascript" src="latticehelper.js"></script>
 	<script type="text/javascript">
 		var awaitFlags = function (target_flags, func) {
 			// Run func once, when all target_flags have been hit.
@@ -95,10 +96,7 @@
 				this.radius = this.radius || 2;
 				this.uDotSize = this.uDotSize || 0.2;
 				this.uVariance = this.uVariance || 0.4;
-				this.scale = 1.0;
-				this.uOrigin = [0, 0, 0];
 				this.uOriginExtra = [0, 0, 0];
-				this.uOriginColor = [0, 0, 0];
 				this.uFog[1] = 1;
 				this.uMVMatrix = [
 					[1,0,0,0],
@@ -112,6 +110,7 @@
 					[0,0,1,-this.radius],
 					[0,0,0,1]
 				];
+				if (window.lattice_helper) { window.lattice_helper.reset(); }
 				$('#config_fog').prop('checked', true);
 				$('#config_fp').prop('checked', false);
 			};
@@ -142,32 +141,21 @@
 			};
 			m.moveFly = function (distance) {
 				if (!distance) { return; }
-				this.uOrigin = V.add(
+				var new_offset = V.add(
 					M.mul(M.transpose(this.uMVMatrix),
-						[0, 0, distance / this.scale]),
-					this.uOrigin);
+						[0, 0, distance / (window.lattice_helper.scale[0] || 1)]),
+					window.lattice_helper.offset.slice(0,3));
+				window.lattice_helper.offset.splice(0, 3,
+					new_offset[0], new_offset[1], new_offset[2]);
 			};
 			m.moveZoom = function (amount) {
-				if (amount == 1) { return; }
-				this.scale = this.scale || 1.0;
-				this.scale *= amount;
+				window.lattice_helper.zoom(amount);
 			};
 			m.MAX_SCALE = 2 + Math.sqrt(5);
 			m.translators = [];
 			m.moveAdjust = function () {
 				// Rezooming
-				var s2 = this.scale * this.scale;
-				if (s2 > this.MAX_SCALE) {
-					this.scale /= this.MAX_SCALE;
-					this.uOrigin = V.scale(this.uOrigin, this.MAX_SCALE);
-					this.uOriginExtra = V.scale(this.uOriginExtra, this.MAX_SCALE);
-					this.uOriginColor = V.scale(this.uOriginColor, -1/this.MAX_SCALE);
-				} else if (s2 * this.MAX_SCALE < 1) {
-					this.scale *= this.MAX_SCALE;
-					this.uOrigin = V.scale(this.uOrigin, 1/this.MAX_SCALE);
-					this.uOriginExtra = V.scale(this.uOriginExtra, 1/this.MAX_SCALE);
-					this.uOriginColor = V.scale(this.uOriginColor, -this.MAX_SCALE);
-				}
+				window.lattice_helper.zoomAdjust();
 				// Viewpoint yoinging
 				var dist_extra = Math.sqrt(V.dot(this.uOriginExtra, this.uOriginExtra));
 				if ((!dist_extra) || (dist_extra <= 0.01)) {
@@ -178,32 +166,7 @@
 					this.uOriginExtra = V.scale(this.uOriginExtra, 0.95);
 				}
 				// Recentering
-				if (!this.disable_recentering) {
-					s2 = this.scale * this.scale;
-					function dirNiceness(v) {
-						var x = V.add(v.origin, m.uOrigin);
-						var y = V.add(v.color, m.uOriginColor);
-						x = V.dot(x, x) * s2;
-						y = V.dot(y, y) / s2;
-						return x + 9 * y;
-					}
-					var new_niceness = Infinity;
-					var niceness = Infinity;
-					if (this.translators.length) {
-						var dir = this.translators[0];
-						for (var i = 0; i < this.translators.length; i++) {
-							new_niceness = dirNiceness(this.translators[i]);
-							if (new_niceness < niceness) {
-								dir = this.translators[i];
-								niceness = new_niceness;
-							}
-						}
-						if (dir != this.translators[0]) {
-							this.uOrigin = V.add(dir.origin, this.uOrigin);
-							this.uOriginColor = V.add(dir.color, this.uOriginColor);
-						}
-					}
-				}
+				window.lattice_helper.recenter();
 			};
 			m.move = function (dt) {
 				// Rotation
@@ -224,7 +187,7 @@
 				// Translation
 				this.moveFly(dt * this.velocity[4]);
 				// Zooming
-				this.moveZoom(Math.exp(dt * this.velocity[3]));
+				this.moveZoom(dt * this.velocity[3]);
 			};
 			m.moveReset();
 			m.movePan = function (x, y) {
@@ -234,7 +197,9 @@
 				}
 			};
 			m.moveRotate = m.moveRoll;
-			m.movePinch = m.moveZoom;
+			m.movePinch = function (factor) {
+				this.moveZoom(Math.log(factor));
+			}
 			var superTouchEnd = m.touchEnd;
 			m.touchEnd = function () {
 				superTouchEnd.call(this);
@@ -262,9 +227,11 @@
 					(i-1)*6*11, (i-1)*6*11 + 3);
 				window.movable.uOriginExtra = V.add(V.add(
 					window.movable.uOriginExtra,
-					window.movable.uOrigin),
+					window.lattice_helper.offset.slice(0,3)),
 					new_origin);
-				window.movable.uOrigin = V.scale(new_origin, -1);
+				new_origin = V.scale(new_origin, -1);
+				window.lattice_helper.offset.splice(0, 3,
+					new_origin[0], new_origin[1], new_origin[2]);
 				window.movable.velocity[4] = 0;
 				window.frame_manager.requestFrame();
 			});
@@ -422,7 +389,7 @@
 							window.movable.uMVMatrix))
 					);
 				gl.uniform2f(gl.getUniformLocation(prog, 'uScale'),
-					window.movable.scale, 1/window.movable.scale);
+					window.lattice_helper.scale[0] || 1, window.lattice_helper.scale[3] || 1);
 				gl.uniform2fv(gl.getUniformLocation(prog, 'uFog'),
 					new Float32Array(window.movable.uFog));
 				gl.uniform3f(gl.getUniformLocation(prog, 'uDotSize'),
@@ -431,10 +398,10 @@
 					3 / window.movable.uVariance); // color scaling
 				gl.uniform3fv(gl.getUniformLocation(prog, 'uOrigin'),
 					new Float32Array(V.add(
-					window.movable.uOrigin,
+					window.lattice_helper.offset.slice(0,3),
 					window.movable.uOriginExtra)));
 				gl.uniform3fv(gl.getUniformLocation(prog, 'uOriginColor'),
-					new Float32Array(window.movable.uOriginColor));
+					new Float32Array(window.lattice_helper.offset.slice(3,6)));
 			};
 			glc.pick = function (x, y) {
 				var gl = glc.gl;
@@ -460,6 +427,7 @@
 				var gl = glc.gl;
 				if (!gl) { return false; }
 				window.movable.update(this.dt);
+				if (!window.lattice_helper) { return; }
 				window.movable.moveAdjust();
 				gl.enable(gl.BLEND);
 				gl.disable(gl.DEPTH_TEST);
@@ -491,8 +459,9 @@
 					c2.globalCompositeOperation = 'lighter';
 					var m = M.mulMats(glc.uPMatrix,
 						M.mulMats(window.movable.uBTMatrix, window.movable.uMVMatrix));
-					var uo = V.add(window.movable.uOrigin, window.movable.uOriginExtra);
-					var usc = 1 / window.movable.scale;
+					var uo = V.add(window.lattice_helper.offset.slice(0,3),
+						window.movable.uOriginExtra);
+					var usc = window.lattice_helper.scale[3] || 1;
 					var udv = -0.25 / window.movable.uVariance;
 					var udz = 3 / Math.sqrt(window.movable.uVariance);
 					var uds = window.movable.uDotSize * Math.sqrt(w*w + h*h) / 6;
@@ -500,9 +469,9 @@
 					function to255(x) { return Math.round(x * 255); }
 					for (var i = 0; i < glc.num_verts / 6; i++) {
 						var v = Array.prototype.slice.call(glc.glData, i*66, i*66 + 6);
-						var p = M.mul(m, V.scale(V.add(v, uo), window.movable.scale).concat(1));
+						var p = M.mul(m, V.scale(V.add(v, uo), window.lattice_helper.scale[0] || 1).concat(1));
 						if (!(Math.abs(p[2]/p[3]) < 1)) { continue; }
-						var c = V.scale(V.add(v.slice(3,6), window.movable.uOriginColor), usc);
+						var c = V.scale(V.add(v.slice(3,6), window.lattice_helper.offset.slice(3,6)), usc);
 						var clr = c.map(scaleColor);
 						clr = V.scale(clr, 1 / Math.max.apply(Math, clr)).map(to255);
 						c2.fillStyle = 'rgb(' + clr.join(',') + ')';
@@ -512,6 +481,7 @@
 			};
 			glc.emulatedDraw = function (time_scheduled) {
 				window.movable.update(this.dt);
+				if (!window.lattice_helper) { return; }
 				window.movable.moveAdjust();
 				var w = $('#emulation')[0].width = $(window).width();
 				var h = $('#emulation')[0].height = $(window).height();
@@ -635,10 +605,12 @@
 					if (!glc.memory_full) {
 						glc.updateData(data.glData);
 					}
-					window.movable.translators = data.translators;
+					window.lattice_helper.translators = data.translators;
 					movable.uFog[0] = 0.7 * data.next_weight;
 					requestMorePoints((glc.screen_diameter || 512) / Math.sqrt(data.next_weight));
 				} else if (data.type == 'ready') {
+					window.lattice_helper = new LatticeHelper(
+						data.dim_hidden + 3, 3, [], data.scale_factors);
 					requestMorePoints();
 				} else if (data.type == 'message') {
 					window.message_box.post(data.message, data.message_class);

@@ -19,6 +19,12 @@ var V = {
 		}
 		return ans;
 	},
+	addInPlace: function (x, y) {
+		var l = Math.min(x.length, y.length);
+		for (var i = 0; i < l; i++) {
+			x[i] += y[i];
+		}
+	},
 	zero: function (n) {
 		var ans = new Array(n);
 		for (var i = 0; i < n; i++) { ans[i] = 0; }
@@ -31,14 +37,6 @@ var V = {
 			}
 		}
 		return true;
-	},
-	rotate: function (v) {
-		if (!v.length) { return; }
-		var sw = v[0];
-		for (var i = 0; i < v.length - 1; i++) {
-			v[i] = v[i+1];
-		}
-		v[v.length - 1] = sw;
 	},
 };
 

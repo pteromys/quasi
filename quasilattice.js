@@ -95,15 +95,6 @@ QuasiLattice.prototype = {
 var Representation = function (data) {
 	for (var key in data) { this[key] = data[key]; }
 	this.test();
-	// Set up coefficients for scaling operations.
-	if (this.SCALE_FACTORS && this.SCALE_FACTORS.length) {
-		var base = Math.log(this.SCALE_FACTORS[0]);
-		if (base > this.EPSILON) {
-			this.SCALE_POWERS = this.SCALE_FACTORS.map(function (x) {
-				return Math.log(Math.abs(x)) / base;
-			});
-		}
-	}
 	return this;
 };
 Representation.prototype = {

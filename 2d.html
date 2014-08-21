@@ -25,6 +25,7 @@
 	<script type="text/javascript" src="movabletouch.js"></script>
 	<script type="text/javascript" src="frames.js"></script>
 	<script type="text/javascript" src="interface.js"></script>
+	<script type="text/javascript" src="latticehelper.js"></script>
 	<script type="text/javascript">
 		var fillCircle = function (context, x, y, r) {
 			context.beginPath();
@@ -34,6 +35,7 @@
 		var DEGREE_LIMIT = 23;
 		var draw = function () {
 			window.movable.update(this.dt);
+			if (!window.lattice_helper) { return; }
 			window.movable.moveAdjust();
 			// Set up context
 			var canvas = $('#main')[0];
@@ -49,18 +51,14 @@
 			context.fillStyle = gradient;
 			context.globalCompositeOperation = 'lighter';
 			context.translate(canvas.width/2, canvas.height/2);
-			var r = window.screen_radius;
-			var scale = r / window.options.r;
-			var s = window.movable.scale;
+			var scale = window.screen_radius / window.options.r;
 			context.scale(scale, -scale);
+			var store = [0.0, 0.0, 0.0];
 			for (var i = 0; i < data.length; i++) {
-				// 0.25 = dotsize * radius. Get parameters later.
-				var d2 = window.movable.getPointOffset(data[i][1]);
-				d2 = 0.25 * Math.exp(-0.25 * d2 / window.variance);
+				window.lattice_helper.renderPoint(data[i], store);
+				var d2 = window.movable.dotsize * Math.exp(-0.25 * store[2] / window.variance);
 				context.save();
-				context.translate(
-					(data[i][0][0] + window.movable.position[0]) * window.movable.scale,
-					(data[i][0][1] + window.movable.position[1]) * window.movable.scale);
+				context.translate(store[0], store[1]);
 				context.scale(d2, d2);
 				context.fillRect(-1, -1, 2, 2);
 				context.restore();
@@ -96,81 +94,49 @@
 			var superMoveReset = movable.moveReset;
 			movable.moveReset = function () {
 				superMoveReset.call(this);
-				this.scale = 1;
-				this.current_offset = V.zero(this.dim_hidden);
-				this.scale2_unseen = this.current_offset.map(function () { return 1; });
-				window.frame_manager.requestFrame();
+				if (window.lattice_helper) { window.lattice_helper.reset(); }
 			};
 			movable.movePan = function (x, y) {
-				var s = window.options.r / window.screen_radius;
+				var s = window.options.r /
+					(window.screen_radius * window.lattice_helper.scale[0]);
 				this.position[0] += x * s;
 				this.position[1] -= y * s;
 			};
 			movable.moveZoom = function (amount) {
-				if (!this.scale_powers) { return; }
-				if (amount == 1) { return; }
-				if (!(amount > 1e-6 && amount < 1e6)) { return; }
-				this.scale = this.scale || 1.0;
-				this.scale *= amount;
-				for (var i = 0; i < this.current_offset.length; i++) {
-					this.scale2_unseen[i] = Math.pow(this.scale, 2 * this.scale_powers[i]);
-				}
+				window.lattice_helper.zoom(amount);
 			};
-			movable.movePinch = movable.moveZoom;
-			var superMove = movable.move;
+			movable.movePinch = function (factor) {
+				this.moveZoom(Math.log(factor));
+			};
 			movable.move = function (dt) {
-				superMove.call(this, dt);
-				this.moveZoom(Math.exp(dt * this.velocity[3]));
+				var s = 1 / window.lattice_helper.scale[0];
+				this.position[0] += this.velocity[0] * dt * s;
+				this.position[1] += this.velocity[1] * dt * s;
+				this.moveZoom(dt * this.velocity[3]);
 			};
 			movable.moveAdjust = function () {
 				if (window.options.n == 2) { this.position[1] = 0; }
-				// Rezooming
-				if (this.scale_powers) {
-					var s2 = this.scale * this.scale;
-					if (s2 > this.scale_factors[0]) {
-						this.position[0] *= this.scale_factors[0];
-						this.position[1] *= this.scale_factors[1];
-						for (var i = 0; i < this.current_offset.length; i++) {
-							this.current_offset[i] *= this.scale_factors[i+2];
-						}
-						this.moveZoom(1/this.scale_factors[0]);
-					} else if (s2 * this.scale_factors[0] < 1) {
-						this.position[0] /= this.scale_factors[0];
-						this.position[1] /= this.scale_factors[1];
-						for (var i = 0; i < this.current_offset.length; i++) {
-							this.current_offset[i] /= this.scale_factors[i+2];
-						}
-						this.moveZoom(this.scale_factors[0]);
-					}
-				}
-				this.reTranslate();
-			};
-			movable.getPointOffset = function (p) {
-				var d2 = 0;
-				var diff = 0;
-				for (var j = 0; j < p.length; j++) {
-					diff = p[j] + window.movable.current_offset[j];
-					d2 += diff * diff * window.movable.scale2_unseen[j];
-				}
-				return d2;
+				window.lattice_helper.offset[0] = this.position[0];
+				window.lattice_helper.offset[1] = this.position[1];
+				window.lattice_helper.zoomAdjust();
+				window.lattice_helper.recenter();
+				this.position[0] = window.lattice_helper.offset[0];
+				this.position[1] = window.lattice_helper.offset[1];
 			};
 			window.renderWorker = new Worker('projector.js');
 			window.renderWorker.onmessage = function (e) {
 				var data = e.data;
 				if (data.type == 'update') {
 					window.current_data = data.data;
-					window.movable.translators = data.translators;
-					var old_dim_hidden = window.movable.dim_hidden;
-					window.movable.dim_hidden = data.dim_hidden;
-					if (data.dim_hidden != old_dim_hidden) {
-						window.movable.moveReset();
-					}
-					window.movable.scale_powers = data.scale_powers.slice(2);
-					window.movable.scale_factors = data.scale_factors;
+					window.lattice_helper.translators = data.translators;
 					window.variance = data.variance;
+					window.movable.dotsize = data.dotsize;
 					window.frame_manager.requestFrame();
 					window.requestMorePoints((window.screen_radius || 512) / Math.sqrt(data.next_weight), data.next_radius);
 					console.log(data.source + ': ' + data.data.length + ' ' + data.next_weight + ' ' + data.next_radius);
+				} else if (data.type == 'init') {
+					window.lattice_helper = new LatticeHelper(
+						data.dim_hidden + 2, 2, [], data.scale_factors);
 				} else if (data.type == 'message') {
 					window.message_box.post(data.message, data.message_class);
 				} else {
@@ -188,11 +154,16 @@
 					var start_time = 0;
 					var distance_reached = 0;
 					var progress_bar;
+					var SCALE_FACTOR;
 					return function (neighbor_size, neighbor_distance) {
 						if (finalized) {
 							$('#config_addpoints').prop('disabled', false);
 							if (progress_bar) { progress_bar.set(1); }
 							return;
+						}
+						if (!SCALE_FACTOR) {
+							SCALE_FACTOR = window.lattice_helper.scale_factors[0] || 1;
+							LIMIT_DIST *= SCALE_FACTOR;
 						}
 						if (!progress_bar) {
 							progress_bar = window.message_box.makeProgress('Finding points...');
@@ -222,35 +193,6 @@
 				window.movable.moveReset();
 				resetZoom();
 				resizeCallback();
-			};
-			window.movable.reTranslate = function () {
-				if (this.disable_recentering) { return; }
-				var s2 = this.scale * this.scale;
-				var m = this;
-				function dirNiceness(v) {
-					var x = V.add(v[0], m.position.slice(0,2));
-					var y = V.add(v[1], m.current_offset);
-					x = V.dot(x, x) * s2;
-					y = V.dot(y, y) / s2;
-					return x + 9 * y;
-				}
-				var new_niceness = Infinity;
-				var niceness = Infinity;
-				if (this.translators.length) {
-					var dir = this.translators[0];
-					for (var i = 0; i < this.translators.length; i++) {
-						new_niceness = dirNiceness(this.translators[i]);
-						if (new_niceness < niceness) {
-							dir = this.translators[i];
-							niceness = new_niceness;
-						}
-					}
-					if (dir != this.translators[0]) {
-						this.position[0] += dir[0][0];
-						this.position[1] += dir[0][1];
-						this.current_offset = V.add(dir[1], this.current_offset);
-					}
-				}
 			};
 			window.frame_manager = new FrameManager(draw);
 			var resizeCallback = function () {

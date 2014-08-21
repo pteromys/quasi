@@ -52,7 +52,11 @@ self.init = function () {
 	try {
 		self.lattice = new QuasiLattice3();
 		self.active = true;
-		self.postMessage({type: 'ready'});
+		self.postMessage({
+			type: 'ready',
+			dim_hidden: self.lattice.rep.DIMENSION_HIDDEN,
+			scale_factors: self.lattice.rep.SCALE_FACTORS,
+		});
 	} catch (e) {
 		self.postMessage({
 			type: 'message',
@@ -73,7 +77,7 @@ self.render = function (source) {
 		translators: self.lattice.directions.filter(function (x) {
 			return (x.r2 < 10);
 		}).map(function (x) {
-			return {origin: x.coords.slice(0,3), color: x.coords.slice(3,6),};
+			return x.coords;
 		}),
 		next_weight: self.lattice.border_verts.first().weight,
 	});

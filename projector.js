@@ -1,14 +1,11 @@
 importScripts('heap.js', 'linear.js', 'quasilattice.js', 'cyclic.js');
 
 // Global variables because I haven't figured out where to put them
-var options = {
+self.options = {
 	n: null,
 	r: 5,
 };
-var lattice = null;
-var screen_state = {
-	radius: 1000,
-};
+self.lattice = null;
 self.active = true;
 
 // Constants
@@ -33,25 +30,12 @@ var QuasiLattice2 = function (n) { // n = degree of symmetry
 	var rep = new Representation(Cyclic(n));
 	// Some constants
 	this.n = n;
-	this.radius = 5; //target_radius || 5;
+	this.radius = 5;
 	this.dotsize = 0.05 * this.radius;
 	rep.variance = Math.pow((rep.DIMENSION_HIDDEN + 3) / (Math.pow(5 * this.dotsize, 4)), 1/rep.DIMENSION_HIDDEN) * 0.5 / Math.PI;
-	/*this.r2 = this.radius * this.radius;
-	this.achieved_radius = false;
-	this.weight_threshold = Math.pow(Math.sqrt(-4 * Math.log(this.radius/100)) - 1, 2);*/
 	QuasiLattice.call(this, rep, Vertex);
-	// Translation
-	this.offset = this.verts[0];
 };
 QuasiLattice2.prototype = Object.create(QuasiLattice.prototype);
-QuasiLattice2.prototype.wantsMoreVerts = function () {
-	return this.verts.length < 1000;
-	if (!this.border_verts.first()) { return false; }
-	if (this.achieved_radius) {
-		return this.border_verts.first().weight() <= this.weight_threshold;
-	}
-	return true;
-};
 
 self.render = function (source) {
 	if (!self.active) { return; }
@@ -61,17 +45,16 @@ self.render = function (source) {
 		type: 'update',
 		"source": source,
 		data: self.lattice.verts.map(function (x) {
-			return [x.xy, x.displacement];
+			return x.coords;
 		}),
 		translators: self.lattice.directions.map(function (x) {
-			return [x.xy, x.displacement];
+			return x.coords;
 		}),
 		next_weight: self.lattice.border_verts.first().weight,
 		next_radius: self.lattice.border_verts.first().r2,
 		variance: self.lattice.rep.variance,
-		dim_hidden: self.lattice.rep.DIMENSION_HIDDEN,
-		scale_powers: self.lattice.rep.SCALE_POWERS,
-		scale_factors: self.lattice.rep.SCALE_FACTORS,
+		dotsize: self.lattice.dotsize,
+		radius: self.lattice.radius,
 	});
 };
 
@@ -80,11 +63,18 @@ self.onmessage = function (e) {
 	if (data.type == 'exit') {
 		self.close();
 	} else if (data.type == 'setSymmetry') {
-		if (options.n != data.n) {
-			options.n = data.n;
+		if (self.options.n != data.n) {
+			self.options.n = data.n;
 			try {
-				var l = new QuasiLattice2(options.n, options.r);
+				var l = new QuasiLattice2(self.options.n, self.options.r);
 				self.lattice = l;
+				self.postMessage({
+					type: 'init',
+					dim_hidden: self.lattice.rep.DIMENSION_HIDDEN,
+					scale_powers: self.lattice.rep.SCALE_POWERS,
+					scale_factors: self.lattice.rep.SCALE_FACTORS,
+				});
+				self.render();
 			} catch (error_message) {
 				self.postMessage({
 					type: 'message',
@@ -94,10 +84,7 @@ self.onmessage = function (e) {
 				});
 			}
 		}
-	} else if (data.type == 'setRadius') {
-		screen_state.radius = data.radius;
-		self.render();
-	} else if (data.type == 'addVerts') {
+	} else if (data.type == 'addVerts' && self.lattice) {
 		self.lattice.addVerts();
 		self.render();
 	} else if (data.type == 'render') {
