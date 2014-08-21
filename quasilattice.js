@@ -10,17 +10,10 @@ BaseVertex.prototype = {
 	isAcceptableDirection: function () { return true; },
 };
 
+
 // The quasilattice
 var QuasiLattice = function (representation, VertexType) {
 	this.rep = representation;
-	if (this.rep.SCALE_FACTORS) {
-		var b = Math.log(this.rep.SCALE_FACTORS[0]);
-		if (b > this.rep.EPSILON) {
-			this.rep.SCALE_POWERS = this.rep.SCALE_FACTORS.map(function (x) {
-				return Math.log(Math.abs(x)) / b;
-			});
-		}
-	}
 	this.Vertex = VertexType;
 	this.verts = [];
 	this.border_verts = new Heap([], this.vertCmp);
@@ -74,6 +67,7 @@ QuasiLattice.prototype = {
 		return this.verts.length - c;
 	},
 	addVertsShrink: function () {
+		if (!this.rep.actShrink) { return; }
 		var limit = this.verts.length;
 		for (var i = this.start_index_shrink; i < limit; i++) {
 			if (!this.verts[i].v_shrunk) {
@@ -85,6 +79,7 @@ QuasiLattice.prototype = {
 	},
 	addVertsGrow: function () {
 		var limit = this.verts.length;
+		if (!this.rep.actGrow) { return; }
 		for (var i = this.start_index_grow; i < limit; i++) {
 			if (!this.verts[i].v_grown) {
 				this.verts[i].v_grown = this.addVert(this.rep.actExpand(this.verts[i].indices));
@@ -93,4 +88,86 @@ QuasiLattice.prototype = {
 		}
 		this.start_index_grow = limit;
 	},
+
 };
+
+
+var Representation = function (data) {
+	for (var key in data) { this[key] = data[key]; }
+	this.test();
+	// Set up coefficients for scaling operations.
+	if (this.SCALE_FACTORS && this.SCALE_FACTORS.length) {
+		var base = Math.log(this.SCALE_FACTORS[0]);
+		if (base > this.EPSILON) {
+			this.SCALE_POWERS = this.SCALE_FACTORS.map(function (x) {
+				return Math.log(Math.abs(x)) / base;
+			});
+		}
+	}
+	return this;
+};
+Representation.prototype = {
+	EPSILON: 1e-9,
+	GROUP_IS_MATRIX_LIST: false,
+	SCALE_FACTORS: null,
+
+	test: function () {
+		var ortho_error = this.testBasis();
+		if (ortho_error) {
+			// If you want your representation to allow a non-orthogonal
+			// basis, set its testBasis property to a function that returns
+			// falsy values when everything is okay and an error message
+			// otherwise.
+			throw ortho_error;
+		}
+		if (this.GROUP_IS_MATRIX_LIST) {
+			var group_error = this.testGroupMatrices();
+			if (group_error) {
+				throw 'Symmetry check failed at ' + group_error.join(', ') + '.';
+			}
+		}
+	},
+	testBasis: function () {
+		// Test basis for orthogonality (but not length!)
+		var b = this.BASIS;
+		var EPSILON = this.EPSILON || 1e-9;
+		var NORM = this.BASIS_NORM_SQUARED || 1;
+		var id = function (i, j) {
+			if (i == j) { return NORM; } else { return 0; }
+		};
+		for (var i = 0; i < b.length; i++) {
+			for (var j = 0; j < b.length; j++) {
+				if (!(Math.abs(V.dot(b[i], b[j]) - id(i,j)) < EPSILON)) {
+					return 'Angle check failed at ' + i + ', ' + j + '.';
+				}
+			}
+		}
+		return false;
+	},
+	testGroupMatrices: function () {
+		// Test group for no duplicates and correct matrix sizes.
+		// To enable this test, set data.GROUP_IS_MATRIX_LIST = true.
+		var d = this.DIMENSION;
+		for (var i = 0; i < this.GROUP.length; i++) {
+			var a = this.GROUP[i];
+			// Test for matrix sizes
+			if (!a || (a.length != d)) { return i; }
+			for (var y = 0; y < d; y++) {
+				if (!a[y] || (a[y].length != d)) { return [i]; }
+			}
+			// Test for duplicates
+			for (var j = 0; j < i; j++) {
+				var b = this.GROUP[j];
+				var different = false;
+				for (var y = 0; y < d; y++) {
+					for (var x = 0; x < d; x++) {
+						if (a[y][x] != b[y][x]) { different = true; }
+					}
+				}
+				if (!different) { return [i, j]; }
+			}
+		}
+		return false;
+	},
+};
+

@@ -81,6 +81,9 @@ var PRIMITIVES = (function () {
 		if (FACTORS.some(function (x) { return p % x == 0; })) { continue; }
 		else { ans.push(p); }
 	}
+	if (2 * ans.length != totient(n)) {
+		throw 'Dimension check failed.';
+	}
 	return ans;
 })();
 
@@ -209,24 +212,6 @@ var Cyclic = {
 	GROUP: {
 		length: 2 * n,
 	},
-
-	// Self-tests
-	testBasisOrthogonality: function () {
-		// Self-test for orthogonality
-		var norm = this.BASIS_NORM_SQUARED || 1;
-		var id = function (i, j) {
-			if (i == j) { return norm; } else { return 0; }
-		};
-		for (var i = 0; i < n-1; i++) {
-			for (var j = 0; j < n-1; j++) {
-				if (Math.abs(V.dot(this.BASIS[i], this.BASIS[j]) - id(i,j)) > this.EPSILON) {
-					return [i, j];
-				}
-			}
-		}
-		return false;
-	},
-
 };
 
 return Cyclic;

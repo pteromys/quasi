@@ -26,22 +26,19 @@ var ICOS_BASIS = (function () {
 	];
 })();
 
+var MAX_S2 = 2 + Math.sqrt(5);
+var MIN_S2 = 2 - Math.sqrt(5);
+
 var Icos = {
 	EPSILON: 1e-9,
 	BASIS: ICOS_BASIS,
+	BASIS_NORM_SQUARED: 2,
 	DIMENSION: 6,
+	DIMENSION_VISIBLE: 3,
+	DIMENSION_HIDDEN: 3,
+	GROUP_IS_MATRIX_LIST: true,
 	CYCLIC_ELEMENT: [1, 0, 0, 0, 0, 0],
-	testBasisOrthogonality: function () {
-		// Self-test for orthogonality
-		var m = M.mulMats(M.transpose(this.BASIS), this.BASIS);
-		var id = function (i, j) { if (i == j) { return 2; } else { return 0; } };
-		for (var i = 0; i < 6; i++) {
-			for (var j = 0; j < 6; j++) {
-				if (Math.abs(m[i][j] - id(i,j)) > 1e-9) { return [i, j]; }
-			}
-		}
-		return false;
-	},
+	SCALE_FACTORS: [MAX_S2, MAX_S2, MAX_S2, MIN_S2, MIN_S2, MIN_S2],
 
 	// Test whether a point is in the fundamental domain
 	// attached to point 0, on edge 01, and in triangle 012.
@@ -149,29 +146,6 @@ var Icos = {
 		}
 		return ans;
 	})(),
-	testGroup: function () {
-		// Group self-test for no duplicates and correct matrix sizes
-		for (var i = 0; i < 120; i++) {
-			var a = this.GROUP[i];
-			// Test for matrix sizes
-			if (!a || (a.length != 6)) { return i; }
-			for (var y = 0; y < 6; y++) {
-				if (!a[y] || (a[y].length != 6)) { return i; }
-			}
-			// Test for duplicates
-			for (var j = 0; j < i; j++) {
-				var b = this.GROUP[j];
-				var different = false;
-				for (var y = 0; y < 6; y++) {
-					for (var x = 0; x < 6; x++) {
-						if (a[y][x] != b[y][x]) { different = true; }
-					}
-				}
-				if (!different) { return [i, j]; }
-			}
-		}
-		return false;
-	},
 };
 
 return Icos;

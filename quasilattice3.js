@@ -1,4 +1,4 @@
-importScripts('heap.js', 'linear.js', 'icos.js', 'quasilattice.js');
+importScripts('heap.js', 'linear.js', 'quasilattice.js', 'icos.js');
 
 // Constants and math helpers
 var EPSILON = 1e-9;
@@ -35,7 +35,7 @@ Vertex.prototype.isAcceptableDirection = function () {
 // The quasilattice
 var QuasiLattice3 = function () {
 	this.glData = [];
-	QuasiLattice.call(this, Icos, Vertex);
+	QuasiLattice.call(this, new Representation(Icos), Vertex);
 };
 QuasiLattice3.prototype = Object.create(QuasiLattice.prototype);
 QuasiLattice3.prototype.createVert = function (indices) {
@@ -48,8 +48,21 @@ QuasiLattice3.prototype.createVert = function (indices) {
 	return nv;
 }
 
-self.lattice = new QuasiLattice3();
-self.active = true;
+self.init = function () {
+	try {
+		self.lattice = new QuasiLattice3();
+		self.active = true;
+		self.postMessage({type: 'ready'});
+	} catch (e) {
+		self.postMessage({
+			type: 'message',
+			message: e + ' Operation canceled.',
+			message_class: 'error',
+			source: 'init',
+		});
+	}
+};
+
 self.render = function (source) {
 	if (!self.active) { return; }
 	source = source || 'render';
@@ -72,16 +85,18 @@ self.onmessage = function (e) {
 		self.close();
 	} else if (data.type == 'abort') {
 		self.active = false;
-	} else if (data.type == 'addVerts') {
+	} else if (data.type == 'init') {
+		self.init();
+	} else if (data.type == 'addVerts' && self.lattice) {
 		var n = data.iterations || 1;
 		for (var i = 0; i < n; i++) {
 			self.lattice.addVerts();
 		}
 		self.render('neighbors');
-	} else if (data.type == 'addVertsShrink') {
+	} else if (data.type == 'addVertsShrink' && self.lattice) {
 		self.lattice.addVertsShrink();
 		self.render('shrink');
-	} else if (data.type == 'addVertsGrow') {
+	} else if (data.type == 'addVertsGrow' && self.lattice) {
 		self.lattice.addVertsGrow();
 		self.render('grow');
 	} else {

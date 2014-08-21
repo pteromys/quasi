@@ -7,14 +7,14 @@ var Octahedral = {
 	BASIS: [[1,0,0],[0,1,0],[0,0,1]],
 	DIMENSION: 3,
 	DIMENSION_VISIBLE: 3,
+	DIMENSION_HIDDEN: 0,
+	GROUP_IS_MATRIX_LIST: true,
 	CYCLIC_ELEMENT: [1,0,0],
 	isFundamental: function (coords) {
 		return coords[0] >= -this.EPSILON &&
 			coords[1] >= coords[0] - this.EPSILON &&
 			coords[2] >= coords[1] - this.EPSILON;
 	},
-	actExpand: function (v) { return v; },
-	actShrink: function (v) { return v; },
 	act: function (i, v) { return M.mul(this.GROUP[i], v); },
 	GROUP: (function () {
 		var ans = new Array(48);
@@ -49,29 +49,6 @@ var Octahedral = {
 		}
 		return ans;
 	})(),
-	testGroup: function () {
-		// Group self-test for no duplicates and correct matrix sizes
-		for (var i = 0; i < 48; i++) {
-			var a = this.GROUP[i];
-			// Test for matrix sizes
-			if (!a || (a.length != 3)) { return i; }
-			for (var y = 0; y < 3; y++) {
-				if (!a[y] || (a[y].length != 3)) { return i; }
-			}
-			// Test for duplicates
-			for (var j = 0; j < i; j++) {
-				var b = this.GROUP[j];
-				var different = false;
-				for (var y = 0; y < 3; y++) {
-					for (var x = 0; x < 3; x++) {
-						if (a[y][x] != b[y][x]) { different = true; }
-					}
-				}
-				if (!different) { return [i, j]; }
-			}
-		}
-		return false;
-	},
 };
 
 return Octahedral;

@@ -1,4 +1,4 @@
-importScripts('heap.js', 'linear.js', 'cyclic.js', 'quasilattice.js');
+importScripts('heap.js', 'linear.js', 'quasilattice.js', 'cyclic.js');
 
 // Global variables because I haven't figured out where to put them
 var options = {
@@ -30,7 +30,7 @@ Vertex.prototype.isAcceptableDirection = function () {
 
 var QuasiLattice2 = function (n) { // n = degree of symmetry
 	if (n < 2) { n = 2; }
-	var rep = Cyclic(n);
+	var rep = new Representation(Cyclic(n));
 	// Some constants
 	this.n = n;
 	this.radius = 5; //target_radius || 5;
@@ -82,7 +82,17 @@ self.onmessage = function (e) {
 	} else if (data.type == 'setSymmetry') {
 		if (options.n != data.n) {
 			options.n = data.n;
-			self.lattice = new QuasiLattice2(options.n, options.r);
+			try {
+				var l = new QuasiLattice2(options.n, options.r);
+				self.lattice = l;
+			} catch (error_message) {
+				self.postMessage({
+					type: 'message',
+					message: error_message + ' Operation canceled.',
+					message_class: 'error',
+					source: data.type,
+				});
+			}
 		}
 	} else if (data.type == 'setRadius') {
 		screen_state.radius = data.radius;
