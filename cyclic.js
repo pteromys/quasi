@@ -5,6 +5,8 @@
 
 var Cyclic = function (n) {
 
+var HALF_N = (n - 1) / 2;
+
 // Cosine and sine
 var CIS = (function () {
 	var ans = [new Array(n), new Array(n)];
@@ -17,23 +19,7 @@ var CIS = (function () {
 	return ans;
 })();
 
-var HALF_N = (n - 1) / 2;
-
-var isInteger = Number.isInteger || function (x) {
-	return Math.floor(x) === x;
-};
-
-var primeFactorList2 = (function (x) {
-	var findFactor = function (i, x) {
-		// Returns prime factors of x via a sieve, sorted ascending.
-		for (var y = x / i; i <= y; i++, y = x / i) {
-			if (isInteger(y)) { return [i].concat(findFactor(i, y)); }
-		}
-		return [x];
-	};
-	return findFactor.bind(null, 2);
-})();
-
+// Factoring-related utils
 var primeFactorList = (function (x) {
 	var findFactor = function (i, x) {
 		// Returns prime factors of x via a sieve, sorted ascending.
@@ -45,7 +31,6 @@ var primeFactorList = (function (x) {
 	}
 	return findFactor.bind(null, 2);
 })();
-
 var primeFactorSet = function (x) {
 	var l = primeFactorList(x);
 	var ans = [l[0]];
@@ -54,16 +39,6 @@ var primeFactorSet = function (x) {
 	}
 	return ans;
 };
-
-var primeFactorDict = function (x) {
-	var l = primeFactorList(x);
-	var ans = {};
-	for (var i = 0; i < l.length; i++) {
-		ans[l[i]] = (ans[l[i]] || 0) + 1;
-	}
-	return ans;
-};
-
 var totient = function (x) {
 	var l = primeFactorList(x);
 	var prev = 0;
@@ -79,11 +54,9 @@ var totient = function (x) {
 	return ans;
 };
 
-var coprime = function (x, y) {
-	// Less efficient but we'll already have the prime factorization...
-	return primeFactorList(x).every(function (z) { return y % z; });
-};
-
+// Performance boost from this caching is negligible
+// (the 5th Fermat number takes only 0.2ms to factor);
+// I just like referring to the factors of n with capital letters.
 var FACTORS = primeFactorSet(n);
 
 // An element generating the faithful Z-subrepresentation.
@@ -183,25 +156,12 @@ SCALE_FACTORS = (function (x) {
 var Cyclic = {
 	EPSILON: 1e-9,
 	BASIS: CYCLIC_BASIS,
+	BASIS_NORM_SQUARED: 2/V.dot(CYCLIC_GENERATOR, CYCLIC_GENERATOR),
 	DIMENSION: n,
 	DIMENSION_VISIBLE: 2,
 	DIMENSION_HIDDEN: Math.max(0, CYCLIC_BASIS.length - 2),
 	CYCLIC_ELEMENT: CYCLIC_GENERATOR,
 	"SCALE_FACTORS": SCALE_FACTORS,
-	pf: primeFactorList,
-	pf2: primeFactorList2,
-	testBasisOrthogonality: function () {
-		// Self-test for orthogonality
-		var id = function (i, j) { if (i == j) { return 1; } else { return 0; } };
-		for (var i = 0; i < n-1; i++) {
-			for (var j = 0; j < n-1; j++) {
-				if (Math.abs(V.dot(this.BASIS[i], this.BASIS[j]) - id(i,j)) > 1e-9) {
-					return [i, j];
-				}
-			}
-		}
-		return false;
-	},
 
 	// Test whether a point is in the fundamental domain
 	// (coords in a fixed choice of eigenplane (i.e. the first))
@@ -249,6 +209,24 @@ var Cyclic = {
 	GROUP: {
 		length: 2 * n,
 	},
+
+	// Self-tests
+	testBasisOrthogonality: function () {
+		// Self-test for orthogonality
+		var norm = this.BASIS_NORM_SQUARED || 1;
+		var id = function (i, j) {
+			if (i == j) { return norm; } else { return 0; }
+		};
+		for (var i = 0; i < n-1; i++) {
+			for (var j = 0; j < n-1; j++) {
+				if (Math.abs(V.dot(this.BASIS[i], this.BASIS[j]) - id(i,j)) > this.EPSILON) {
+					return [i, j];
+				}
+			}
+		}
+		return false;
+	},
+
 };
 
 return Cyclic;

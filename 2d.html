@@ -11,21 +11,6 @@
 		canvas {
 			position: absolute;
 			top: 0px; left: 0px; right: 0px; bottom: 0px;
-			opacity: 0;
-			z-index: 1;
-			transition: opacity 10s 0.2s;
-			-webkit-transition: opacity 10s 0.2s;
-		}
-		canvas.active {
-			opacity: 1;
-			z-index: 0;
-			transition: opacity 0s 0s;
-			-webkit-transition: opacity 0s 0s;
-		}
-		#canvascontainer {
-			position: absolute;
-			top: 0px; bottom: 0px; left: 0px; right: 0px;
-			overflow: hidden;
 		}
 		#config .box { text-align: center; }
 		.formline { margin: 0.5em -1em 0em; }
@@ -51,7 +36,7 @@
 			window.movable.update(this.dt);
 			window.movable.moveAdjust();
 			// Set up context
-			var canvas = $('#one')[0];
+			var canvas = $('#main')[0];
 			canvas.width = $(window).width();
 			canvas.height = $(window).height();
 			var context = canvas.getContext('2d');
@@ -88,7 +73,6 @@
 		};
 		window.current_n = 5;
 		window.current_data = [];
-		window.done_threshold = 0;
 		window.screen_radius = 1000;
 		window.options = {n: 5, r: 5};
 		$(document).ready(function () {
@@ -104,7 +88,7 @@
 				return !($('.overlay').is(':target'));
 			};
 			movable.bindKeyboard(window);
-			movable.bindTouch($('#canvascontainer'));
+			movable.bindTouch($('#main'));
 			movable.speed[0] = movable.speed[1] = 0.002; // move 2 units/sec
 			movable.speed[2] = 0.001; // rotate 1 rad/sec
 			movable.speed[3] = 0.001; // zoom about 4x per sec
@@ -303,15 +287,11 @@
 	</script>
 </head>
 <body>
-	<div id="canvascontainer">
-		<canvas id="one" class="active">
-			<img src="quasi-thumbnail.png" alt="Preview" />
-			This demo requires HTML5 Canvas support.
-		</canvas>
-		<canvas id="two"></canvas>
-	</div>
+	<canvas id="main">
+		<img src="quasi-thumbnail.png" alt="Preview" />
+		This demo requires HTML5 Canvas support.
+	</canvas>
 	<div id="messages" class="messagebox"></div>
-	<div id="worst" style="position: absolute; z-index: 10; width: 100%; height: 1em; left:0px; top:0px; color: #fff;"></div>
 	<div id="config" class="overlay"><div class="box">
 		<h2>Choose symmetry</h2>
 		<form method="post" action="#" id="form_config"><div class="formline">
