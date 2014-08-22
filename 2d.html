@@ -36,11 +36,10 @@
 		var draw = function () {
 			window.movable.update(this.dt);
 			if (!window.lattice_helper) { return; }
-			window.movable.moveAdjust();
 			// Set up context
 			var canvas = $('#main')[0];
-			canvas.width = $(window).width();
-			canvas.height = $(window).height();
+			var w = canvas.width = $(window).width();
+			var h = canvas.height = $(window).height();
 			var context = canvas.getContext('2d');
 			var data = window.current_data;
 			context.save();
@@ -53,10 +52,18 @@
 			context.translate(canvas.width/2, canvas.height/2);
 			var scale = window.screen_radius / window.options.r;
 			context.scale(scale, -scale);
+			var cull_x = 0.5 * w / scale;
+			var cull_y = 0.5 * h / scale;
 			var store = [0.0, 0.0, 0.0];
-			for (var i = 0; i < data.length; i++) {
+			var moving = window.movable.isMoving();
+			var realtime = moving || this.next_id || window.movable.is_hammer_busy;
+			if (realtime) { window.options.num_verts = window.options.num_verts_sd || 1; }
+			var limit = Math.min(data.length, window.options.num_verts);
+			for (var i = 0; i < limit; i++) {
 				window.lattice_helper.renderPoint(data[i], store);
 				var d2 = window.movable.dotsize * Math.exp(-0.25 * store[2] / window.variance);
+				if (Math.abs(store[0]) - d2 > cull_x) { continue; }
+				if (Math.abs(store[1]) - d2 > cull_y) { continue; }
 				context.save();
 				context.translate(store[0], store[1]);
 				context.scale(d2, d2);
@@ -64,15 +71,42 @@
 				context.restore();
 			}
 			context.restore();
+			window.movable.moveAdjust();
+			var frame_time = this.currentFrameTime();
+			if (frame_time > 500) {
+				window.options.num_verts_hd = 6 * Math.ceil(window.options.num_verts / 7);
+			}
+			if (realtime) {
+				if (frame_time < 16) { window.options.upLOD(); }
+				else if (frame_time > 32) { window.options.downLOD(); }
+				window.options.num_verts_sd = window.options.num_verts;
+			} else if (window.options.num_verts < Math.min(window.current_data.length, window.options.num_verts_hd)) {
+				window.options.upLOD();
+				return true;
+			}
 			return window.movable.isMoving();
 		};
+
 		var resetZoom = function () {
 			$('meta[name="viewport"]').attr('content', 'width=device-width, initial-scale=1');
 		};
 		window.current_n = 5;
 		window.current_data = [];
 		window.screen_radius = 1000;
-		window.options = {n: 5, r: 5};
+		window.options = {
+			n: 5,
+			r: 5,
+			num_verts: 1,
+			num_verts_sd: 1,
+			num_verts_hd: 50000,
+			upLOD: function () {
+				this.num_verts = Math.min(window.current_data.length,
+					Math.ceil(this.num_verts * 6 / 5));
+			},
+			downLOD: function () {
+				this.num_verts = Math.ceil(this.num_verts * 6 / 7);
+			},
+		};
 		$(document).ready(function () {
 			window.message_box = new MessageBox('#messages');
 			window.movable = new MovableTouch();
@@ -137,6 +171,7 @@
 				} else if (data.type == 'init') {
 					window.lattice_helper = new LatticeHelper(
 						data.dim_hidden + 2, 2, [], data.scale_factors);
+					window.options.num_verts_hd = 50000;
 				} else if (data.type == 'message') {
 					window.message_box.post(data.message, data.message_class);
 				} else {
@@ -149,7 +184,7 @@
 				window.requestMorePoints = (function () {
 					var LIMIT_SIZE = 200;
 					var LIMIT_TIME = 2000;
-					var LIMIT_DIST = 5;
+					var LIMIT_DIST = window.options.r;
 					var finalized = false;
 					var start_time = 0;
 					var distance_reached = 0;
