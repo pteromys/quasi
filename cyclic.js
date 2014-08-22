@@ -111,8 +111,8 @@ var CYCLIC_BASIS = (function () {
 	return ans;
 })();
 
-// Eigenvalues of a map that expands the visible eigenspace
-// while shrinking the others, preserving unsigned total volume
+// SCALE_FACTORS lists eigenvalues of a map that expands the
+// visible eigenspace while preserving (unsigned) total volume
 // and taking lattice points to lattice points.
 // These correspond to (totally) real units in Z[z],
 // where z is a primitive nth root of unity.
@@ -121,7 +121,7 @@ var CYCLIC_BASIS = (function () {
 // and use (z^a - 1)/(z - 1), noting that the numerator and
 // denominator are Galois conjugates---so its field norm
 // (the product over all conjugates of z) must be 1.
-var SCALE_FACTORS = (function () {
+var SCALE_UNIT = (function () {
 	if (n == 2) { return [1]; }
 	// If n is odd, take a = 2 to get z + 1.
 	// Multiply by its complex conjugate to get a real unit.
@@ -134,29 +134,52 @@ var SCALE_FACTORS = (function () {
 	// since p^k is odd---so we can still use a = 2.
 	if (FACTORS[0] != 2 || FACTORS.length > 2 ||
 			(FACTORS.length > 1 && n % 4 == 0)) {
-		return PRIMITIVES.map(function (p) {
-			return 2 + 2 * CIS[0][p];
-		});
+		return [2, 2];
 	} else {
 		// What's left over is when n is a power of 2 or is
 		// 2 times a power of an odd prime p. If p = 3,
 		// we use a = 5; otherwise we can use a = 3.
 		if (FACTORS[1] == 3) {
-			return PRIMITIVES.map(function (p) {
-				return 1 + 2 * CIS[0][p] + 2 * CIS[0][(p + p) % n];
-			});
+			return [1, 2, 2];
 		} else {
-			return PRIMITIVES.map(function (p) {
-				return 1 + 2 * CIS[0][p];
-			});
+			return [1, 2];
 		}
 	}
 })();
+// Compute scale factors from unit coefficients.
+var SCALE_FACTORS = (function (unit) {
+	if (n == 2) { return [1]; }
+	// Compute the scale factors using z = e^{2 pi i / n}
+	var factors_map = {};
+	PRIMITIVES.forEach(function (p) {
+		var ans = 0;
+		for (var i = 0; i < unit.length; i++) {
+			ans += unit[i] * CIS[0][(p * i) % n];
+		}
+		factors_map[p] = ans;
+	});
+	var factorsMap = function (i) {
+		i = i % n;
+		if (i > n/2) { i = n - i; }
+		return factors_map[i];
+	};
+	// Find the smallest eigenvalue (we used a unit so it'll never be zero)
+	var best = 1;
+	for (var i = 0; i < PRIMITIVES.length; i++) {
+		if (Math.abs(factors_map[PRIMITIVES[i]]) < Math.abs(factors_map[best])) {
+			best = PRIMITIVES[i];
+		}
+	}
+	return PRIMITIVES.map(function (p) { return 1/factorsMap(p * best); });
+})(SCALE_UNIT);
+// Final answer: list one factor for each dimension.
 SCALE_FACTORS = (function (x) {
 	var ans = [];
+	var sign = 1;
+	if (x[0] < 0) { sign = -1; }
 	for (var i = 0; i < x.length; i++) {
-		ans.push(x[i]);
-		ans.push(x[i]);
+		ans.push(x[i] * sign);
+		ans.push(x[i] * sign);
 	}
 	return ans;
 })(SCALE_FACTORS);
