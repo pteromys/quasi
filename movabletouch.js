@@ -19,7 +19,7 @@ var MovableTouch = function () {
 		'pinch': {which: 3, speed: 1},
 	};
 	// Status variables
-	this._last_hammer_event = null;
+	this.last_hammer_event = null;
 	this.is_hammer_busy = false;
 };
 
@@ -41,7 +41,7 @@ MovableTouch.prototype = Object.create(Movable.prototype);
 		}
 		var t = this;
 		this.hammer.on('pan rotate pinch', function (e) {
-			last = t._last_hammer_event || e;
+			last = t.last_hammer_event || e;
 			// Avoid sudden jumps when a finger is added or removed
 			if (last.pointers.length == e.pointers.length) {
 				var dt = e.deltaTime - last.deltaTime;
@@ -69,7 +69,7 @@ MovableTouch.prototype = Object.create(Movable.prototype);
 				}
 			}
 			if (!e.isFinal) { t.is_hammer_busy = true; }
-			t._last_hammer_event = e;
+			t.last_hammer_event = e;
 			t.decay_rate = t.decay_coast;
 			t.motionCallback();
 		});
@@ -102,7 +102,7 @@ MovableTouch.prototype = Object.create(Movable.prototype);
 		this.position[this.touch_map.pinch.which] += (1 - scale);
 	};
 	this.touchEnd = function () {
-		this._last_hammer_event = null;
+		this.last_hammer_event = null;
 		this.is_hammer_busy = false;
 	};
 	this.touchVelocity = function (key, value, weight) {

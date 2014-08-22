@@ -168,7 +168,7 @@
 				if (this.keys_down['press']) {
 					var cx = $(window).width()/2;
 					var cy = $(window).height()/2;
-					var last = this._last_hammer_event;
+					var last = this.last_hammer_event;
 					if (last) {
 						this.velocity[0] = 0.002 * (last.center.x - cx) / this.screen_diameter || 0;
 						this.velocity[1] = 0.002 * (last.center.y - cy) / this.screen_diameter || 0;
