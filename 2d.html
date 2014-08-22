@@ -57,8 +57,9 @@
 			var store = [0.0, 0.0, 0.0];
 			var moving = window.movable.isMoving();
 			var realtime = moving || this.next_id || window.movable.is_hammer_busy;
-			if (realtime) { window.options.num_verts = window.options.num_verts_sd || 1; }
-			var limit = Math.min(data.length, window.options.num_verts);
+			if (realtime) { this.selectLOD('realtime'); }
+			else { this.selectLOD('hd'); }
+			var limit = Math.min(data.length, this.lod.num_verts);
 			for (var i = 0; i < limit; i++) {
 				window.lattice_helper.renderPoint(data[i], store);
 				var d2 = window.movable.dotsize * Math.exp(-0.25 * store[2] / window.variance);
@@ -72,18 +73,7 @@
 			}
 			context.restore();
 			window.movable.moveAdjust();
-			var frame_time = this.currentFrameTime();
-			if (frame_time > 500) {
-				window.options.num_verts_hd = 6 * Math.ceil(window.options.num_verts / 7);
-			}
-			if (realtime) {
-				if (frame_time < 16) { window.options.upLOD(); }
-				else if (frame_time > 32) { window.options.downLOD(); }
-				window.options.num_verts_sd = window.options.num_verts;
-			} else if (window.options.num_verts < Math.min(window.current_data.length, window.options.num_verts_hd)) {
-				window.options.upLOD();
-				return true;
-			}
+			this.adjustLOD();
 			return window.movable.isMoving();
 		};
 
@@ -96,16 +86,6 @@
 		window.options = {
 			n: 5,
 			r: 5,
-			num_verts: 1,
-			num_verts_sd: 1,
-			num_verts_hd: 50000,
-			upLOD: function () {
-				this.num_verts = Math.min(window.current_data.length,
-					Math.ceil(this.num_verts * 6 / 5));
-			},
-			downLOD: function () {
-				this.num_verts = Math.ceil(this.num_verts * 6 / 7);
-			},
 		};
 		$(document).ready(function () {
 			window.message_box = new MessageBox('#messages');
@@ -171,7 +151,6 @@
 				} else if (data.type == 'init') {
 					window.lattice_helper = new LatticeHelper(
 						data.dim_hidden + 2, 2, [], data.scale_factors);
-					window.options.num_verts_hd = 50000;
 				} else if (data.type == 'message') {
 					window.message_box.post(data.message, data.message_class);
 				} else {
@@ -230,6 +209,23 @@
 				resizeCallback();
 			};
 			window.frame_manager = new FrameManager(draw);
+			window.frame_manager.upLOD = function () {
+				if (this.lod.num_verts < window.current_data.length) {
+					this.lod.num_verts = Math.min(window.current_data.length,
+						1 + Math.floor(this.lod.num_verts * 6 / 5));
+					this.requestFrame();
+				}
+			};
+			window.frame_manager.downLOD = function () {
+				this.lod.num_verts = Math.min(window.current_data.length,
+					Math.ceil(this.lod.num_verts * 6 / 7));
+			};
+			window.frame_manager.addLOD('realtime', {
+				frame_min: 8, frame_max: 16, num_verts: 50,
+			});
+			window.frame_manager.addLOD('hd', {
+				frame_min: 250, frame_max: 500, num_verts: 50000,
+			});
 			var resizeCallback = function () {
 				var r = window.screen_radius =
 					Math.sqrt(window.innerWidth * window.innerWidth +

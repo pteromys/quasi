@@ -28,17 +28,44 @@ var FrameManager = function (callback) {
 	this.drawCallback = callback || function () {};
 	this.requestFrame = this.requestFrame.bind(this);
 	this.drawWrapper = this.drawWrapper.bind(this);
+	this.lod = null;
+	this.lod_modes = {};
 };
 
 FrameManager.prototype = {
 	DEFAULT_DT: 16,
 
+	// Public API
 	requestFrame: function () {
 		if (!this.next_id) {
 			this.next_id = nativeRequestAnimFrame(this.drawWrapper);
 		}
 		return this.next_id;
 	},
+	currentFrameTime: function () {
+		return ((new Date()).valueOf() - this.last_frame_start) || 16;
+	},
+	addLOD: function (name, options) {
+		this.lod_modes[name] = new FrameManager.LOD(this);
+		for (var key in options) {
+			if (options.hasOwnProperty(key)) {
+				this.lod_modes[name][key] = options[key];
+			}
+		}
+	},
+	selectLOD: function (name) {
+		this.lod = this.lod_modes[name];
+	},
+	adjustLOD: function () {
+		var frame_time = this.currentFrameTime();
+		if (frame_time < this.lod.frame_min) { this.lod.up(); }
+		else if (frame_time > this.lod.frame_max) { this.lod.down(); }
+	},
+	// Replace these functions to adjust the LOD.
+	upLOD: function () {},
+	downLOD: function () {},
+
+	// Internal functions
 	drawWrapper: function (time_scheduled) {
 		this.next_id = NaN;
 		this.setFrameStart(time_scheduled);
@@ -54,6 +81,9 @@ FrameManager.prototype = {
 			this.prev_time = NaN;
 		}
 	},
+	setFrameStart: function (time_scheduled) {
+		this.last_frame_start = (new Date()).valueOf();
+	},
 };
 
 if (window.performance && window.performance.now) {
@@ -63,14 +93,15 @@ if (window.performance && window.performance.now) {
 	FrameManager.prototype.currentFrameTime = function () {
 		return (window.performance.now() - this.last_frame_start) || 16;
 	};
-} else {
-	FrameManager.prototype.setFrameStart = function (time_scheduled) {
-		this.last_frame_start = (new Date()).valueOf();
-	};
-	FrameManager.prototype.currentFrameTime = function () {
-		return ((new Date()).valueOf() - this.last_frame_start) || 16;
-	};
 }
+
+FrameManager.LOD = function (frame_manager) { this.frame_manager = frame_manager; };
+FrameManager.LOD.prototype = {
+	frame_min: 8,
+	frame_max: 16,
+	up: function () { this.frame_manager.upLOD(); },
+	down: function () { this.frame_manager.downLOD(); },
+};
 
 return FrameManager;
 })();
