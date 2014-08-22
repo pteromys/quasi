@@ -6,15 +6,25 @@
 	<link rel="stylesheet" type="text/css" href="icons/webfont.css" />
 	<link rel="stylesheet" type="text/css" href="interface.css" />
 	<style type="text/css">
-		html, body { width: 100%; height: 100%; margin: 0px; padding: 0px; }
+		html, body {
+			width: 100%; height: 100%; margin: 0px; padding: 0px;
+			overflow: hidden;
+		}
 		body { background: #000; }
 		canvas {
 			position: absolute;
 			top: 0px; left: 0px; right: 0px; bottom: 0px;
 		}
+		.box {
+			background: rgba(15, 15, 15, 0.9);
+			box-shadow: 0em 0em 2em 0em rgba(255, 255, 255, 0.5);
+		}
 		#config .box { text-align: center; }
+		h2 { text-align: center; }
+		#help h2, #config h2 { text-align: left; }
 		.formline { margin: 0.5em -1em 0em; }
 		.formline .button { margin: 0em 0.25em; }
+		.license { opacity: 0.75; }
 	</style>
 	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
 	<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
@@ -279,10 +289,87 @@
 		<div class="box">
 			<a class="button icon button_close button_rightmargin"
 				title="Close" href="#">&times;</a>
-			<p>This page draws patterns reminiscient of quasicrystals
-			by projecting higher-dimensional lattices into the plane.
-			<p>Code written by <a href="http://pteromys.melonisland.net/">Pteromys</a>
+			<h2>Help</h2>
+			<p><a href="#help_about">What am I seeing here?</a></p>
+			<ul>
+				<li><b>Move</b>: arrow keys and
+					<span class="keyboard-key">&lt;<sub>,</sub></span>,
+					<span class="keyboard-key">&gt;<sub>.</sub></span>
+					or mouse/finger dragging.</li>
+				<li><b>Zoom</b>: <span class="keyboard-key">+</span> and
+					<span class="keyboard-key">-</span>, mouse scrolling,
+					or pinch zoom.</li>
+			</ul>
+			<p class="license">Code written by
+			<a href="http://pteromys.melonisland.net/">Pteromys</a>
 			and released under the <a href="http://unlicense.org/">Unlicense</a>.</p>
+		</div>
+	</div>
+	<div id="help_about" class="overlay">
+		<div class="box">
+			<a class="button icon button_leftmargin"
+				title="Back" href="#help">&laquo;</a>
+			<a class="button icon button_close button_rightmargin"
+				title="Close" href="#">&times;</a>
+			<h2>About</h2>
+			<p>This page draws
+			<a href="http://en.wikipedia.org/wiki/Quasicrystal"
+				>quasicrystalline</a> patterns by slicing
+			and projecting higher-dimensional
+			<a href="http://en.wikipedia.org/wiki/Lattice_(group)"
+				>lattices</a> into the plane.
+			Points are sized by their proximity to the slice.</p>
+			<p>Thanks to the
+			<a href="http://en.wikipedia.org/wiki/Crystallographic_restriction_theorem"
+				>crystallographic restriction theorem</a>, rotational
+			symmetry of order other than 1, 2, 3, 4, or 6 requires a lattice of
+			dimension higher than 2. In fact, to have a 2-D plane that rotates
+			with order \(n\), the required dimension of the lattice is
+			<a href="http://en.wikipedia.org/wiki/Euler%27s_totient_function"
+				>\(\phi(n)\)</a>. (<a href="#help_dimension">Why?</a>)
+			</p>
+			<p>The patterns have some self-similarity&mdash;they look the same
+			on high and low magnification. This takes its simplest form
+			when \(n = 5\); then it has a direct analogue in the
+			<a href="3d.html#help_selfsimilarity">3-D version</a>
+			and is related to the game
+			<a href="http://www.math.brown.edu/~res/Java/App12/test1.html"
+				>Lucy and Lily</a>.
+			But when \(n\) is larger, it gets more complicated.</p>
+		</div>
+	</div>
+	<div id="help_dimension" class="overlay">
+		<div class="box">
+			<a class="button icon button_leftmargin"
+				title="Back" href="#help_about">&laquo;</a>
+			<a class="button icon button_close button_rightmargin"
+				title="Close" href="#">&times;</a>
+			<h2>Dimension</h2>
+			<p>A rotation preserving a lattice can be written as an
+			integer matrix. If it rotates a 2-D plane with order \(n\),
+			one of its eigenvalues there is a primitive \(n\)th
+			<a href="http://en.wikipedia.org/wiki/Root_of_unity"
+				>root of unity</a> \(\zeta_n\).
+			Then all \(\phi(n)\) of the other primitive \(n\)th roots of
+			unity&mdash;i.e. all of \(\zeta_n\)'s
+			<a href="http://en.wikipedia.org/wiki/Conjugate_element_(field_theory)"
+				>Galois conjugates</a>&mdash;are eigenvalues too,
+			so the matrix's size is at least \(\phi(n)\).</p>
+		</div>
+	</div>
+	<div id="help_zooming" class="overlay">
+		<div class="box">
+			<a class="button icon button_leftmargin"
+				title="Back" href="#help_about">&laquo;</a>
+			<a class="button icon button_close button_rightmargin"
+				title="Close" href="#">&times;</a>
+			<h2>Zooming</h2>
+			<p>This bit is unfortunately unfinished. It involves
+			<a href="http://en.wikipedia.org/wiki/Cyclotomic_unit"
+				>cyclotomic units</a> and
+			<a href="http://en.wikipedia.org/wiki/Dirichlet%27s_unit_theorem"
+				>Dirichlet's unit theorem</a>.
+			</p>
 		</div>
 	</div>
 	<a class="button icon button_root" data-key="QUESTION"

@@ -22,12 +22,7 @@
 			background: rgba(15, 15, 15, 0.9);
 			box-shadow: 0em 0em 2em 0em rgba(255, 255, 255, 0.5);
 		}
-		.keyboard {
-			font-size: 80%;
-			display: inline-block; vertical-align: middle;
-			padding: 0em 0.4em; border-radius: 0.4em;
-			border-style: solid; border-width: 1px 1px 2px;
-		}
+		.license { opacity: 0.75; }
 		h2 { text-align: center; }
 		#help h2, #config h2 { text-align: left; }
 		form ul {
@@ -648,18 +643,23 @@
 			<a class="button icon button_close button_rightmargin"
 				title="Close" href="#">&times;</a>
 			<h2>Help</h2>
+			<p><a href="#help_about">What am I seeing here?</a></p>
 			<ul>
-				<li><b>Turn</b>: arrow keys and <span class="keyboard">&lt;</span>,
-					<span class="keyboard">&gt;</span> or mouse/finger dragging.</li>
-				<li><b>Fly</b>: <span class="keyboard">spacebar</span> and
-					<span class="keyboard">Z</span> or press-and-hold.</li>
-				<li><b>Zoom</b>: <span class="keyboard">+</span> and
-					<span class="keyboard">-</span>, mouse scrolling, or pinch zoom.
-					(Hint: lock onto a point first.)</li>
+				<li><b>Turn</b>: arrow keys and
+					<span class="keyboard-key">&lt;<sub>,</sub></span>,
+					<span class="keyboard-key">&gt;<sub>.</sub></span>
+					or mouse/finger dragging.</li>
+				<li><b>Fly</b>: <span class="keyboard-key">spacebar</span> and
+					<span class="keyboard-key">Z</span> or press-and-hold.</li>
+				<li><b>Zoom</b>: <span class="keyboard-key">+</span> and
+					<span class="keyboard-key">-</span>, mouse scrolling,
+					or pinch zoom. (Hint: lock onto a point first.)</li>
 				<li><b>Lock on</b> to a point: double-tap.</li>
 				<li>Toggle <b>first-person</b> view: triple-tap.</li>
 			</ul>
-			<p><a href="#help_about">What am I seeing here?</a></p>
+			<p class="license">Code written by
+			<a href="http://pteromys.melonisland.net/">Pteromys</a>
+			and released under the <a href="http://unlicense.org/">Unlicense</a>.</p>
 		</div>
 	</div>
 	<div id="help_about" class="overlay">
@@ -689,8 +689,6 @@
 				<li><a href="#help_selfsimilarity">It's self-similar</a>&mdash;a
 					zoomed-in view is indistinguishable from a zoomed-out view.</li>
 			</ol></p>
-			<p>Code written by <a href="http://pteromys.melonisland.net/">Pteromys</a>
-			and released under the <a href="http://unlicense.org/">Unlicense</a>.</p>
 		</div>
 	</div>
 	<div id="help_selfsimilarity" class="overlay">
@@ -738,7 +736,7 @@
 			That is, this scaling is what we'd obtain with a zoom factor
 			of \(2 + \sqrt{5}\).</p>
 			<p>This also occurs in
-			<a href="http://en.wikipedia.org/wiki/Penrose_tiling">the
+			<a href="quasi.html">the
 			2-D quasicrystal with 5-fold symmetry</a>,
 			for which a related phenomenon is illustrated by the game
 			<a href="http://www.math.brown.edu/~res/Java/App12/test1.html"
