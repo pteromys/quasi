@@ -21,6 +21,7 @@ var MovableTouch = function () {
 	// Status variables
 	this.last_hammer_event = null;
 	this.is_hammer_busy = false;
+	this.zoom_center = null;
 };
 
 MovableTouch.prototype = Object.create(Movable.prototype);
@@ -76,6 +77,7 @@ MovableTouch.prototype = Object.create(Movable.prototype);
 		$(element).on('wheel DOMMouseScroll mousewheel', function (e) {
 			// Mousewheel zooming
 			e = e.originalEvent;
+			if (!(isNaN(e.pageX))) { t.zoom_center = [e.pageX, e.pageY]; }
 			var delta_y = e.wheelDelta || (-e.detail);
 			if (Math.abs(delta_y) > 20) { delta_y /= 120; }
 			t.decay_rate = t.decay_coast;
@@ -86,6 +88,13 @@ MovableTouch.prototype = Object.create(Movable.prototype);
 			function (e) {
 				if (!e.relatedTarget) { t.touchEnd(); }
 			});
+	};
+	this.bindKeyboard = function (element) {
+		var t = this;
+		Movable.prototype.bindKeyboard.apply(this, arguments);
+		$(element).on('keydown.mKeyboard', function (e) {
+			t.zoom_center = null;
+		});
 	};
 	this.isMoving = function () {
 		if (this.is_hammer_busy) { return false; }

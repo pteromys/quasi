@@ -123,29 +123,41 @@
 			movable.movePan = function (x, y) {
 				var s = window.options.r /
 					(window.screen_radius * window.lattice_helper.scale[0]);
-				this.position[0] += x * s;
-				this.position[1] -= y * s;
+				window.lattice_helper.offset[0] += x * s;
+				window.lattice_helper.offset[1] -= y * s;
 			};
 			movable.moveZoom = function (amount) {
+				if (this.is_hammer_busy && this.last_hammer_event) {
+					this.zoom_center = [
+						this.last_hammer_event.center.x,
+						this.last_hammer_event.center.y,
+					];
+				}
+				var cx = 0;
+				var cy = 0;
+				if (this.zoom_center) {
+					cx = this.zoom_center[0] - $(window).width() / 2;
+					cy = this.zoom_center[1] - $(window).height() / 2;
+				}
+				this.movePan(-cx, -cy);
 				window.lattice_helper.zoom(amount);
+				this.movePan(cx, cy);
 			};
 			movable.movePinch = function (factor) {
 				this.moveZoom(Math.log(factor));
 			};
 			movable.move = function (dt) {
 				var s = 1 / window.lattice_helper.scale[0];
-				this.position[0] += this.velocity[0] * dt * s;
-				this.position[1] += this.velocity[1] * dt * s;
+				window.lattice_helper.offset[0] += this.velocity[0] * dt * s;
+				window.lattice_helper.offset[1] += this.velocity[1] * dt * s;
 				this.moveZoom(dt * this.velocity[3]);
 			};
 			movable.moveAdjust = function () {
-				if (window.current_n == 2) { this.position[1] = 0; }
-				window.lattice_helper.offset[0] = this.position[0];
-				window.lattice_helper.offset[1] = this.position[1];
+				if (window.current_n == 2) {
+					window.lattice_helper.offset[1] = 0;
+				}
 				window.lattice_helper.zoomAdjust();
 				window.lattice_helper.recenter();
-				this.position[0] = window.lattice_helper.offset[0];
-				this.position[1] = window.lattice_helper.offset[1];
 			};
 			window.renderWorker = new Worker('projector.js');
 			window.renderWorker.onmessage = function (e) {
