@@ -2,6 +2,9 @@
 // and the faithful subrepresentation of its
 // regular representation on Z^n (by cycling the axes).
 // (The dimension of this is the totient of n.)
+//
+// When n is 2 a few details have to be special-cased.
+// These can be located by searching for "n == 2".
 
 var Cyclic = function (n) {
 
@@ -76,6 +79,7 @@ var CYCLIC_GENERATOR = (function () {
 
 // List of p < n/2 which are coprime to n.
 var PRIMITIVES = (function () {
+	if (n == 2) { return [1]; }
 	var ans = [];
 	for (var p = 1; p <= HALF_N; p++) {
 		if (FACTORS.some(function (x) { return p % x == 0; })) { continue; }
@@ -118,6 +122,7 @@ var CYCLIC_BASIS = (function () {
 // denominator are Galois conjugates---so its field norm
 // (the product over all conjugates of z) must be 1.
 var SCALE_FACTORS = (function () {
+	if (n == 2) { return [1]; }
 	// If n is odd, take a = 2 to get z + 1.
 	// Multiply by its complex conjugate to get a real unit.
 	//
@@ -213,6 +218,8 @@ var Cyclic = {
 		length: 2 * n,
 	},
 };
+
+if (n == 2) { Cyclic.testBasis = function () { return false; } }
 
 return Cyclic;
 

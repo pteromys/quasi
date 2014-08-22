@@ -115,7 +115,7 @@
 				this.moveZoom(dt * this.velocity[3]);
 			};
 			movable.moveAdjust = function () {
-				if (window.options.n == 2) { this.position[1] = 0; }
+				if (window.current_n == 2) { this.position[1] = 0; }
 				window.lattice_helper.offset[0] = this.position[0];
 				window.lattice_helper.offset[1] = this.position[1];
 				window.lattice_helper.zoomAdjust();
@@ -176,7 +176,7 @@
 						var progress = Math.max(0,
 							((new Date()).valueOf() - start_time)/LIMIT_TIME,
 							(Math.min(LIMIT_SIZE/neighbor_size, 1) +
-							Math.min(distance_reached/LIMIT_DIST, 1)) / 2);
+							Math.min(distance_reached/LIMIT_DIST, 1.9)) / 2);
 						console.log(LIMIT_SIZE/neighbor_size, distance_reached/LIMIT_DIST);
 						progress_bar.set(0.1 + progress * 0.8);
 						if (progress >= 1) {
