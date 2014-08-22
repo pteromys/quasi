@@ -143,7 +143,7 @@
 				if (!distance) { return; }
 				var new_offset = V.add(
 					M.mul(M.transpose(this.uMVMatrix),
-						[0, 0, distance / (window.lattice_helper.scale[0] || 1)]),
+						[0, 0, distance / window.lattice_helper.scale[0]]),
 					window.lattice_helper.offset.slice(0,3));
 				window.lattice_helper.offset.splice(0, 3,
 					new_offset[0], new_offset[1], new_offset[2]);
@@ -225,13 +225,13 @@
 				// Move origin
 				var new_origin = Array.prototype.slice.call(glc.glData,
 					(i-1)*6*11, (i-1)*6*11 + 3);
-				window.movable.uOriginExtra = V.add(V.add(
-					window.movable.uOriginExtra,
-					window.lattice_helper.offset.slice(0,3)),
-					new_origin);
-				new_origin = V.scale(new_origin, -1);
-				window.lattice_helper.offset.splice(0, 3,
-					new_origin[0], new_origin[1], new_origin[2]);
+				window.movable.uOriginExtra = V.add(
+					window.movable.uOriginExtra, V.add(
+					window.lattice_helper.offset,
+					new_origin));
+				window.lattice_helper.offset[0] = -new_origin[0];
+				window.lattice_helper.offset[1] = -new_origin[1];
+				window.lattice_helper.offset[2] = -new_origin[2];
 				window.movable.velocity[4] = 0;
 				window.frame_manager.requestFrame();
 			});
@@ -389,7 +389,7 @@
 							window.movable.uMVMatrix))
 					);
 				gl.uniform2f(gl.getUniformLocation(prog, 'uScale'),
-					window.lattice_helper.scale[0] || 1, window.lattice_helper.scale[3] || 1);
+					window.lattice_helper.scale[0], window.lattice_helper.scale[3]);
 				gl.uniform2fv(gl.getUniformLocation(prog, 'uFog'),
 					new Float32Array(window.movable.uFog));
 				gl.uniform3f(gl.getUniformLocation(prog, 'uDotSize'),
@@ -398,7 +398,7 @@
 					3 / window.movable.uVariance); // color scaling
 				gl.uniform3fv(gl.getUniformLocation(prog, 'uOrigin'),
 					new Float32Array(V.add(
-					window.lattice_helper.offset.slice(0,3),
+					window.lattice_helper.offset,
 					window.movable.uOriginExtra)));
 				gl.uniform3fv(gl.getUniformLocation(prog, 'uOriginColor'),
 					new Float32Array(window.lattice_helper.offset.slice(3,6)));
@@ -459,9 +459,9 @@
 					c2.globalCompositeOperation = 'lighter';
 					var m = M.mulMats(glc.uPMatrix,
 						M.mulMats(window.movable.uBTMatrix, window.movable.uMVMatrix));
-					var uo = V.add(window.lattice_helper.offset.slice(0,3),
+					var uo = V.add(window.lattice_helper.offset,
 						window.movable.uOriginExtra);
-					var usc = window.lattice_helper.scale[3] || 1;
+					var usc = window.lattice_helper.scale[3];
 					var udv = -0.25 / window.movable.uVariance;
 					var udz = 3 / Math.sqrt(window.movable.uVariance);
 					var uds = window.movable.uDotSize * Math.sqrt(w*w + h*h) / 6;
@@ -469,7 +469,7 @@
 					function to255(x) { return Math.round(x * 255); }
 					for (var i = 0; i < glc.num_verts / 6; i++) {
 						var v = Array.prototype.slice.call(glc.glData, i*66, i*66 + 6);
-						var p = M.mul(m, V.scale(V.add(v, uo), window.lattice_helper.scale[0] || 1).concat(1));
+						var p = M.mul(m, V.scale(V.add(v, uo), window.lattice_helper.scale[0]).concat(1));
 						if (!(Math.abs(p[2]/p[3]) < 1)) { continue; }
 						var c = V.scale(V.add(v.slice(3,6), window.lattice_helper.offset.slice(3,6)), usc);
 						var clr = c.map(scaleColor);
@@ -610,7 +610,7 @@
 					requestMorePoints((glc.screen_diameter || 512) / Math.sqrt(data.next_weight));
 				} else if (data.type == 'ready') {
 					window.lattice_helper = new LatticeHelper(
-						data.dim_hidden + 3, 3, [], data.scale_factors);
+						6, 3, [], data.scale_factors);
 					requestMorePoints();
 				} else if (data.type == 'message') {
 					window.message_box.post(data.message, data.message_class);

@@ -1,4 +1,4 @@
-importScripts('heap.js', 'linear.js', 'quasilattice.js', 'icos.js');
+importScripts('heap.js', 'linear.js', 'quasilattice.js', 'icos.js', 'octahedral.js');
 
 // Constants and math helpers
 var EPSILON = 1e-9;
@@ -17,9 +17,18 @@ var MIN_S2 = Math.sqrt(5) - 2;
 var DIRECTION_MAX_R2 = 100;
 
 // Vertices
-var Vertex = function (indices, icos) {
-	BaseVertex.call(this, indices, icos);
+var Vertex = function (indices, rep) {
+	BaseVertex.call(this, indices, rep);
 	var c = this.coords;
+	if (c.length < 4) { c[3] = 0; }
+	if (c.length < 5) {
+		c[4] = (indices[0] + indices[1] + indices[2]) % 2;
+		c[4] = ((c[4] + 2) % 2) / 2;
+	}
+	if (c.length < 6) {
+		c[5] = ((indices[0] + indices[1]) % 2) || ((indices[1] + indices[2]) % 2);
+		c[5] = ((c[5] + 2) % 2) / 2;
+	}
 	this.r2 = c[0]*c[0] + c[1]*c[1] + c[2]*c[2];
 	this.d2 = c[3]*c[3] + c[4]*c[4] + c[5]*c[5];
 	var s2 = 0.5 * this.d2 / VARIANCE;
@@ -54,7 +63,6 @@ self.init = function () {
 		self.active = true;
 		self.postMessage({
 			type: 'ready',
-			dim_hidden: self.lattice.rep.DIMENSION_HIDDEN,
 			scale_factors: self.lattice.rep.SCALE_FACTORS,
 		});
 	} catch (e) {

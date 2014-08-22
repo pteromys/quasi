@@ -7,7 +7,7 @@ var Octahedral = {
 	BASIS: [[1,0,0],[0,1,0],[0,0,1]],
 	DIMENSION: 3,
 	DIMENSION_VISIBLE: 3,
-	DIMENSION_HIDDEN: 0,
+	DIMENSION_HIDDEN: 3,
 	GROUP_IS_MATRIX_LIST: true,
 	CYCLIC_ELEMENT: [1,0,0],
 	isFundamental: function (coords) {
