@@ -353,7 +353,8 @@
 			and is related to the game
 			<a href="http://www.math.brown.edu/~res/Java/App12/test1.html"
 				>Lucy and Lily</a>.
-			But when \(n\) is larger, it gets more complicated.</p>
+			But when \(n\) is larger, <a href="#help_zooming">it
+			gets more complicated</a>.</p>
 		</div>
 	</div>
 	<div id="help_dimension" class="overlay">
@@ -382,12 +383,50 @@
 			<a class="button icon button_close button_rightmargin"
 				title="Close" href="#">&times;</a>
 			<h2>Zooming</h2>
-			<p>This bit is unfortunately unfinished. It involves
-			<a href="http://en.wikipedia.org/wiki/Cyclotomic_unit"
-				>cyclotomic units</a> and
+			<p>To keep the number of dots drawn roughly constant,
+			as we expand the plane we also uniformly shrink the
+			unseen dimensions. This way as the dots spread out,
+			more dots come in from outside to fill in the gaps.</p>
+			<p>Self-similarity occurs because there are transformations
+			(realizable as
+			<a href="http://en.wikipedia.org/wiki/Circular_shift"
+				>circular shifts</a> in \(n\) dimensions) taking dots
+			to other dots while scaling the visible two dimensions
+			in place. So the view before and after look the same, yet
+			they differ by some scaling in the visible dimensions!</p>
+			<p>If \(n = 5, 8, 10, \) or \(12\), or in the
+			<a href="3d.html">3-D version</a>,
+			then this is the full story&mdash;exactly as
+			many dimensions are hidden from view as are visible;
+			and such a transformation scales them by reciprocal
+			amounts, exactly undoing some level of zoom.</p>
+			<p>Taking dots to dots requires that
+			this zoom level is a real unit in the
+			<a href="http://en.wikipedia.org/wiki/Ring_of_integers"
+				>ring of integers</a> of
+			<a href="http://en.wikipedia.org/wiki/Cyclotomic_field"
+				>\(\mathbf{Q}(e^{2 \pi i /n})\)</a>,
+			and that the zoom levels in the hidden dimensions are its
+			<a href="http://en.wikipedia.org/wiki/Conjugate_element_(field_theory)"
+				>Galois conjugates</a>, with the same
+			multiplicity. When \(n\) is not one of the values
+			named above, the visible and hidden dimensions
+			don't match in number; so this kind of transformation
+			can't scale all the hidden dimensions uniformly!</p>
+			<p>Happily,
 			<a href="http://en.wikipedia.org/wiki/Dirichlet%27s_unit_theorem"
-				>Dirichlet's unit theorem</a>.
-			</p>
+				>Dirichlet's unit theorem</a> ensures there
+			are enough units (thus enough transformations) to
+			approximate any level of uniform zooming
+			with bounded error. What results is a coarser sort of
+			self-similarity, where small scales look like large
+			scales if some distortion in the unseen dimensions
+			is acceptable.</p>
+			<p>Of course, finding a complete set of
+			units is tricky; this program as written only looks for
+			<a href="http://en.wikipedia.org/wiki/Cyclotomic_unit"
+				>cyclotomic units</a>, which is good enough
+			for \(n &lt; 34\).</p>
 		</div>
 	</div>
 	<a class="button icon button_root" data-key="QUESTION"
