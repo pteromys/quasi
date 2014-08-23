@@ -71,8 +71,8 @@ self.onmessage = function (e) {
 				self.postMessage({
 					type: 'init',
 					dim_hidden: self.lattice.rep.DIMENSION_HIDDEN,
-					scale_powers: self.lattice.rep.SCALE_POWERS,
 					scale_factors: self.lattice.rep.SCALE_FACTORS,
+					scale_defect: self.lattice.rep.SCALE_DEFECT,
 				});
 				self.render();
 			} catch (error_message) {

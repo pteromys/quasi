@@ -3,16 +3,13 @@ var LatticeHelper = (function () {
 var LatticeHelper = function (dimension, visibles, translators, scale_factors) {
 	this.dimension = dimension;
 	this.dimension_visible = visibles;
+	this.dimension_hidden = dimension - visibles;
 	this.translators = translators;
 	this.scale_factors = scale_factors;
-	// Set up coefficients for scaling operations.
-	if (this.scale_factors && this.scale_factors.length) {
-		var base = Math.log(this.scale_factors[0]);
-		if (base > 1e-9) {
-			this.scale_powers = this.scale_factors.map(function (x) {
-				return Math.log(Math.abs(x)) / base;
-			});
-		}
+	if (scale_factors) {
+		this.log_factors = scale_factors.map(function (row) {
+			return row.map(function (x) { return Math.log(Math.abs(x)); });
+		});
 	}
 	this.reset();
 };
@@ -35,6 +32,7 @@ LatticeHelper.prototype = {
 	},
 	reset: function () {
 		this.offset = V.zero(this.dimension);
+		this.log_scale = this.offset.slice();
 		this.scale = this.offset.map(function () { return 1; });
 	},
 	recenter: function () {
@@ -66,25 +64,40 @@ LatticeHelper.prototype = {
 		}
 	},
 	zoom: function (amount) {
-		if (!this.scale_powers) { return; }
+		if (!this.scale_factors) { return; }
 		if (!amount) { return; }
 		if (!(Math.abs(amount) < 3)) { return; }
-		for (var i = 0; i < this.dimension; i++) {
-			this.scale[i] *= Math.exp(amount * this.scale_powers[i]);
+		var s = Math.exp(amount);
+		var lsi = -amount * this.dimension_visible / this.dimension_hidden;
+		var si = Math.exp(lsi);
+		for (var i = 0; i < this.dimension_visible; i++) {
+			this.scale[i] *= s;
+			this.log_scale[i] += amount;
+		}
+		for (var i = this.dimension_visible; i < this.dimension; i++) {
+			this.scale[i] *= si;
+			this.log_scale[i] += lsi;
 		}
 	},
 	zoomAdjust: function () {
 		if (!this.scale_factors) { return; }
-		var s2 = this.scale[0] * this.scale[0];
-		if (s2 > this.scale_factors[0]) {
-			for (var i = 0; i < this.dimension; i++) {
-				this.offset[i] *= this.scale_factors[i];
-				this.scale[i] /= this.scale_factors[i];
+		var v_tmp = V.zero(this.dimension);
+		var best = V.dot(this.log_scale, this.log_scale);
+		var i_best = -1;
+		var changed = false;
+		for (var i = 0; i < this.scale_factors.length; i++) {
+			var t = V.sum2(this.log_factors[i], this.log_scale);
+			if (t < best) {
+				best = t;
+				i_best = i;
+				changed = true;
 			}
-		} else if (s2 * this.scale_factors[0] < 1) {
+		}
+		if (changed) {
 			for (var i = 0; i < this.dimension; i++) {
-				this.offset[i] /= this.scale_factors[i];
-				this.scale[i] *= this.scale_factors[i];
+				this.offset[i] /= this.scale_factors[i_best][i];
+				this.scale[i] *= this.scale_factors[i_best][i];
+				this.log_scale[i] += this.log_factors[i_best][i];
 			}
 		}
 	},

@@ -38,7 +38,10 @@ var Icos = {
 	DIMENSION_HIDDEN: 3,
 	GROUP_IS_MATRIX_LIST: true,
 	CYCLIC_ELEMENT: [1, 0, 0, 0, 0, 0],
-	SCALE_FACTORS: [MAX_S2, MAX_S2, MAX_S2, MIN_S2, MIN_S2, MIN_S2],
+	SCALE_FACTORS: [
+		[MAX_S2, MAX_S2, MAX_S2, MIN_S2, MIN_S2, MIN_S2],
+		[-MIN_S2, -MIN_S2, -MIN_S2, -MAX_S2, -MAX_S2, -MAX_S2],
+	],
 
 	// Test whether a point is in the fundamental domain
 	// attached to point 0, on edge 01, and in triangle 012.

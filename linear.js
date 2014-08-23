@@ -25,6 +25,15 @@ var V = {
 			x[i] += y[i];
 		}
 	},
+	sum2: function (x, y) {
+		var ans = 0;
+		var t;
+		for (var i = Math.min(x.length, y.length) - 1; i >= 0; i--) {
+			t = x[i] + y[i];
+			ans += t * t;
+		}
+		return ans;
+	},
 	zero: function (n) {
 		var ans = new Array(n);
 		for (var i = 0; i < n; i++) { ans[i] = 0; }

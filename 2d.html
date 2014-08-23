@@ -173,6 +173,9 @@
 				} else if (data.type == 'init') {
 					window.lattice_helper = new LatticeHelper(
 						data.dim_hidden + 2, 2, [], data.scale_factors);
+					if (data.scale_defect > 0) {
+						window.message_box.post('Zoom check failed; zoom might not work correctly.', 'warning');
+					}
 				} else if (data.type == 'message') {
 					window.message_box.post(data.message, data.message_class);
 				} else {
@@ -190,7 +193,7 @@
 					var start_time = 0;
 					var distance_reached = 0;
 					var progress_bar;
-					var SCALE_FACTOR;
+					var SCALE_FACTOR = 1;
 					return function (neighbor_size, neighbor_distance) {
 						if (finalized) {
 							$('#config_addpoints').prop('disabled', false);
@@ -198,7 +201,10 @@
 							return;
 						}
 						if (!SCALE_FACTOR) {
-							SCALE_FACTOR = window.lattice_helper.scale_factors[0] || 1;
+							if (window.lattice_helper.scale_factors) {
+								SCALE_FACTOR = 1 / window.lattice_helper.scale_factors[window.lattice_helper.dimension/2 - 1][0];
+								SCALE_FACTOR = Math.abs(SCALE_FACTOR);
+							}
 							LIMIT_DIST *= SCALE_FACTOR;
 						}
 						if (!progress_bar) {

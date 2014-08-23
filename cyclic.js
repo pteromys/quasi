@@ -57,6 +57,50 @@ var totient = function (x) {
 	return ans;
 };
 
+// Linear algebra utils
+var isZero = function (t) { return Math.abs(t) < 1e-6; };
+var rowReduce = function (m) {
+	// Row reduce the matrix m in place. Assumes rectangular.
+	var x = 0;
+	var y = 0;
+	var v_tmp;
+	while (x < m[0].length && y < m.length) {
+		// Search down this column for the biggest entry
+		var y_tmp = y;
+		var y_best = y;
+		while (y_tmp < m.length) {
+			if (Math.abs(m[y_tmp][x]) > Math.abs(m[y_best][x])) {
+				y_best = y_tmp;
+			}
+			y_tmp++;
+		}
+		// If it's zero, move to the next column.
+		if (isZero(m[y_best][x])) { x++; continue; }
+		// Swap with the current row and increment the row counter.
+		v_tmp = m[y_best];
+		m[y_best] = m[y];
+		m[y] = v_tmp;
+		y++;
+		// Zero the rest of this column and move to the next one.
+		for (y_tmp = y; y_tmp < m.length; y_tmp++) {
+			if (!isZero(m[y_tmp][x])) {
+				V.addInPlace(m[y_tmp], V.scale(v_tmp, -m[y_tmp][x]/v_tmp[x]));
+			}
+		}
+		x++;
+	}
+};
+var rowReduced = function (m) {
+	var ans = m.map(function (r) { return r.slice(); });
+	rowReduce(ans);
+	return ans;
+};
+var rank = function (m) {
+	return rowReduced(m).filter(function (x) {
+		return !(x.every(isZero));
+	}).length;
+};
+
 // Performance boost from this caching is negligible
 // (the 5th Fermat number takes only 0.2ms to factor);
 // I just like referring to the factors of n with capital letters.
@@ -111,9 +155,9 @@ var CYCLIC_BASIS = (function () {
 	return ans;
 })();
 
-// SCALE_FACTORS lists eigenvalues of a map that expands the
-// visible eigenspace while preserving (unsigned) total volume
-// and taking lattice points to lattice points.
+// Each entry of SCALE_FACTORS lists eigenvalues of a map that
+// expands the visible eigenspace, preserves unsigned total volume,
+// and takes lattice points to lattice points.
 // These correspond to (totally) real units in Z[z],
 // where z is a primitive nth root of unity.
 //
@@ -123,6 +167,10 @@ var CYCLIC_BASIS = (function () {
 // (the product over all conjugates of z) must be 1.
 var SCALE_UNIT = (function () {
 	if (n == 2) { return [1]; }
+	if (n == 17) { return [1, 2]; }
+	if (n == 26) { return [1, 2, 2, 2]; }
+	if (n == 31) { return [1, 2]; }
+	if (n == 33) { return [1, 2, 2]; }
 	// If n is odd, take a = 2 to get z + 1.
 	// Multiply by its complex conjugate to get a real unit.
 	//
@@ -147,7 +195,7 @@ var SCALE_UNIT = (function () {
 	}
 })();
 // Compute scale factors from unit coefficients.
-var SCALE_FACTORS = (function (unit) {
+var SCALE_FACTORS_MAP = (function (unit) {
 	if (n == 2) { return [1]; }
 	// Compute the scale factors using z = e^{2 pi i / n}
 	var factors_map = {};
@@ -158,22 +206,17 @@ var SCALE_FACTORS = (function (unit) {
 		}
 		factors_map[p] = ans;
 	});
-	var factorsMap = function (i) {
+	return function (i) {
 		i = i % n;
 		if (i > n/2) { i = n - i; }
 		return factors_map[i];
 	};
-	// Find the smallest eigenvalue (we used a unit so it'll never be zero)
-	var best = 1;
-	for (var i = 0; i < PRIMITIVES.length; i++) {
-		if (Math.abs(factors_map[PRIMITIVES[i]]) < Math.abs(factors_map[best])) {
-			best = PRIMITIVES[i];
-		}
-	}
-	return PRIMITIVES.map(function (p) { return 1/factorsMap(p * best); });
 })(SCALE_UNIT);
-// Final answer: list one factor for each dimension.
-SCALE_FACTORS = (function (x) {
+var SCALE_FACTORS_ORIG = PRIMITIVES.map(function (p) {
+	return PRIMITIVES.map(function (q) { return 1/SCALE_FACTORS_MAP(p * q); });
+});
+// List one factor for each dimension.
+var SCALE_FACTORS_DOUBLED = SCALE_FACTORS_ORIG.map(function (x) {
 	var ans = [];
 	var sign = 1;
 	if (x[0] < 0) { sign = -1; }
@@ -182,7 +225,19 @@ SCALE_FACTORS = (function (x) {
 		ans.push(x[i] * sign);
 	}
 	return ans;
-})(SCALE_FACTORS);
+});
+// Include reciprocals.
+SCALE_FACTORS_DOUBLED = SCALE_FACTORS_DOUBLED.concat(
+	SCALE_FACTORS_DOUBLED.map(function (x) {
+		return x.map(function (t) { return 1/t; });
+	})
+);
+// Drop scale factors to disable zooming when n = 2, 3, 4, or 6.
+if (n < 5 || n == 6) { SCALE_FACTORS_DOUBLED = null; }
+// Self-test for maximal rank of scale factors
+var SCALE_DEFECT = PRIMITIVES.length - 1 - rank(SCALE_FACTORS_ORIG.map(function (x) {
+	return x.map(function (t) { return Math.log(Math.abs(t)); });
+}));
 
 var Cyclic = {
 	EPSILON: 1e-9,
@@ -192,7 +247,8 @@ var Cyclic = {
 	DIMENSION_VISIBLE: 2,
 	DIMENSION_HIDDEN: Math.max(0, CYCLIC_BASIS.length - 2),
 	CYCLIC_ELEMENT: CYCLIC_GENERATOR,
-	"SCALE_FACTORS": SCALE_FACTORS,
+	"SCALE_FACTORS": SCALE_FACTORS_DOUBLED,
+	"SCALE_DEFECT": SCALE_DEFECT,
 
 	// Test whether a point is in the fundamental domain
 	// (coords in a fixed choice of eigenplane (i.e. the first))
