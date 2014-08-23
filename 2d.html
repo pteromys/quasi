@@ -193,7 +193,7 @@
 					var start_time = 0;
 					var distance_reached = 0;
 					var progress_bar;
-					var SCALE_FACTOR = 1;
+					var SCALE_FACTOR = 0;
 					return function (neighbor_size, neighbor_distance) {
 						if (finalized) {
 							$('#config_addpoints').prop('disabled', false);
@@ -201,9 +201,9 @@
 							return;
 						}
 						if (!SCALE_FACTOR) {
+							SCALE_FACTOR = 1;
 							if (window.lattice_helper.scale_factors) {
-								SCALE_FACTOR = 1 / window.lattice_helper.scale_factors[window.lattice_helper.dimension/2 - 1][0];
-								SCALE_FACTOR = Math.abs(SCALE_FACTOR);
+								SCALE_FACTOR = window.lattice_helper.scale_distortion;
 							}
 							LIMIT_DIST *= SCALE_FACTOR;
 						}

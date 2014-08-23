@@ -10,6 +10,8 @@ var LatticeHelper = function (dimension, visibles, translators, scale_factors) {
 		this.log_factors = scale_factors.map(function (row) {
 			return row.map(function (x) { return Math.log(Math.abs(x)); });
 		});
+		this.scale_distortion = Math.exp(Math.sqrt(
+			V.dot(this.log_factors[0], this.log_factors[0])));
 	}
 	this.reset();
 };
