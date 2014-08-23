@@ -121,13 +121,15 @@ var CYCLIC_GENERATOR = (function () {
 	return ans;
 })();
 
+var COPRIME_TO_N = function (x) {
+	return FACTORS.every(function (p) { return x % p; });
+};
 // List of p < n/2 which are coprime to n.
 var PRIMITIVES = (function () {
 	if (n == 2) { return [1]; }
 	var ans = [];
 	for (var p = 1; p <= HALF_N; p++) {
-		if (FACTORS.some(function (x) { return p % x == 0; })) { continue; }
-		else { ans.push(p); }
+		if (COPRIME_TO_N(p)) { ans.push(p); }
 	}
 	if (2 * ans.length != totient(n)) {
 		throw 'Dimension check failed.';
@@ -155,89 +157,106 @@ var CYCLIC_BASIS = (function () {
 	return ans;
 })();
 
-// Each entry of SCALE_FACTORS lists eigenvalues of a map that
-// expands the visible eigenspace, preserves unsigned total volume,
-// and takes lattice points to lattice points.
-// These correspond to (totally) real units in Z[z],
-// where z is a primitive nth root of unity.
-//
-// The basic strategy to find these is to take a coprime to n
-// and use (z^a - 1)/(z - 1), noting that the numerator and
-// denominator are Galois conjugates---so its field norm
-// (the product over all conjugates of z) must be 1.
-var SCALE_UNIT = (function () {
-	if (n == 2) { return [1]; }
-	if (n == 17) { return [1, 2]; }
-	if (n == 26) { return [1, 2, 2, 2]; }
-	if (n == 31) { return [1, 2]; }
-	if (n == 33) { return [1, 2, 2]; }
-	// If n is odd, take a = 2 to get z + 1.
-	// Multiply by its complex conjugate to get a real unit.
+var SCALE_INFORMATION = (function () {
+	// Each entry of SCALE_FACTORS lists eigenvalues of a map that
+	// expands the visible eigenspace, preserves unsigned total volume,
+	// and takes lattice points to lattice points.
+	// These correspond to (totally) real units in Z[z],
+	// where z is a primitive nth root of unity.
 	//
-	// If n is even and n/2 has at least two distinct prime factors,
-	// let p be one which is odd, k its multiplicity, and m = n/p^k.
-	// Then calculate the norm in Q(z) of (z+1) by grouping terms:
-	// Group z + 1 with wz + 1 for primitive mth roots of unity w.
-	// The product of these is z^m + 1, with norm 1 in Q(z^m)
-	// since p^k is odd---so we can still use a = 2.
-	if (FACTORS[0] != 2 || FACTORS.length > 2 ||
-			(FACTORS.length > 1 && n % 4 == 0)) {
-		return [2, 2];
-	} else {
+	// The basic strategy to find these is to take a coprime to n
+	// and use (z^a - 1)/(z - 1), noting that the numerator and
+	// denominator are Galois conjugates---so its field norm
+	// (the product over all conjugates of z) must be 1.
+	function getUnit(index) {
+		if (index == 0) { return [1, 2]; } // smallest coefficients, so try it first
+		if (index == 1) { return [2, 2]; } // a = 2, times its complex conjugate
+		var ans = new Array(index + 1);
+		ans[0] = 1;
+		for (var i = 1; i <= index; i++) {
+			ans[i] = 2;
+		}
+		return ans;
+	}
+	function canUseUnit(index) {
+		if (index == 0) { return n % 3; }
+		// If n is odd, take a = 2 to get z + 1.
+		// Multiply by its complex conjugate to get a real unit.
+		//
+		// If n is even and n/2 has at least two distinct prime factors,
+		// let p be one which is odd, k its multiplicity, and m = n/p^k.
+		// Then calculate the norm in Q(z) of (z+1) by grouping terms:
+		// Group z + 1 with wz + 1 for primitive mth roots of unity w.
+		// The product of these is z^m + 1, with norm 1 in Q(z^m)
+		// since p^k is odd---so we can still use a = 2.
+		if (index == 1) {
+			return FACTORS[0] != 2 || FACTORS.length > 2 ||
+				(FACTORS.length > 1 && n % 4 == 0);
+		}
 		// What's left over is when n is a power of 2 or is
 		// 2 times a power of an odd prime p. If p = 3,
 		// we use a = 5; otherwise we can use a = 3.
-		if (FACTORS[1] == 3) {
-			return [1, 2, 2];
-		} else {
-			return [1, 2];
-		}
+		return COPRIME_TO_N(2 * index + 1);
 	}
-})();
-// Compute scale factors from unit coefficients.
-var SCALE_FACTORS_MAP = (function (unit) {
-	if (n == 2) { return [1]; }
-	// Compute the scale factors using z = e^{2 pi i / n}
-	var factors_map = {};
-	PRIMITIVES.forEach(function (p) {
-		var ans = 0;
-		for (var i = 0; i < unit.length; i++) {
-			ans += unit[i] * CIS[0][(p * i) % n];
-		}
-		factors_map[p] = ans;
-	});
-	return function (i) {
-		i = i % n;
-		if (i > n/2) { i = n - i; }
-		return factors_map[i];
-	};
-})(SCALE_UNIT);
-var SCALE_FACTORS_ORIG = PRIMITIVES.map(function (p) {
-	return PRIMITIVES.map(function (q) { return 1/SCALE_FACTORS_MAP(p * q); });
-});
-// List one factor for each dimension.
-var SCALE_FACTORS_DOUBLED = SCALE_FACTORS_ORIG.map(function (x) {
+	// Compute scale factors from unit coefficients.
+	function scaleMapFromUnit (unit) {
+		if (n == 2) { return [1]; }
+		// Compute the scale factors using z = e^{2 pi i / n}
+		var factors_map = {};
+		PRIMITIVES.forEach(function (p) {
+			var ans = 0;
+			for (var i = 0; i < unit.length; i++) {
+				ans += unit[i] * CIS[0][(p * i) % n];
+			}
+			factors_map[p] = ans;
+		});
+		return function (i) {
+			i = i % n;
+			if (i > n/2) { i = n - i; }
+			return factors_map[i];
+		};
+	}
+	function scaleListFromUnit(unit) {
+		var m = scaleMapFromUnit(unit);
+		return PRIMITIVES.map(function (p) {
+			return PRIMITIVES.map(function (q) {
+				return 1/m(p * q);
+			});
+		});
+	}
+	// Send no scale factors, to disable zooming when n = 2, 3, 4, or 6.
+	if (n < 5 || n == 6) { return [null, 0]; }
 	var ans = [];
-	var sign = 1;
-	if (x[0] < 0) { sign = -1; }
-	for (var i = 0; i < x.length; i++) {
-		ans.push(x[i] * sign);
-		ans.push(x[i] * sign);
+	var ans_logs = [];
+	var rank_current = 0;
+	for (var index = 0; index < HALF_N; index++) {
+		if (!canUseUnit(index)) { continue; }
+		var new_factors = scaleListFromUnit(getUnit(index));
+		ans = ans.concat(new_factors);
+		ans_logs = ans_logs.concat(new_factors.map(function (x) {
+			return x.map(function (t) { return Math.log(Math.abs(t)); });
+		}));
+		rank_current = rank(ans_logs);
+		if (rank_current + 1 == PRIMITIVES.length) { break; }
 	}
-	return ans;
-});
-// Include reciprocals.
-SCALE_FACTORS_DOUBLED = SCALE_FACTORS_DOUBLED.concat(
-	SCALE_FACTORS_DOUBLED.map(function (x) {
+	SCALE_DEFECT = PRIMITIVES.length - 1 - rank_current;
+	// List one factor for each dimension.
+	ans = ans.map(function (x) {
+		var ans = [];
+		var sign = 1;
+		if (x[0] < 0) { sign = -1; }
+		for (var i = 0; i < x.length; i++) {
+			ans.push(x[i] * sign);
+			ans.push(x[i] * sign);
+		}
+		return ans;
+	});
+	// Include reciprocals.
+	ans = ans.concat(ans.map(function (x) {
 		return x.map(function (t) { return 1/t; });
-	})
-);
-// Drop scale factors to disable zooming when n = 2, 3, 4, or 6.
-if (n < 5 || n == 6) { SCALE_FACTORS_DOUBLED = null; }
-// Self-test for maximal rank of scale factors
-var SCALE_DEFECT = PRIMITIVES.length - 1 - rank(SCALE_FACTORS_ORIG.map(function (x) {
-	return x.map(function (t) { return Math.log(Math.abs(t)); });
-}));
+	}));
+	return [ans, PRIMITIVES.length - 1 - rank_current];
+})();
 
 var Cyclic = {
 	EPSILON: 1e-9,
@@ -247,8 +266,8 @@ var Cyclic = {
 	DIMENSION_VISIBLE: 2,
 	DIMENSION_HIDDEN: Math.max(0, CYCLIC_BASIS.length - 2),
 	CYCLIC_ELEMENT: CYCLIC_GENERATOR,
-	"SCALE_FACTORS": SCALE_FACTORS_DOUBLED,
-	"SCALE_DEFECT": SCALE_DEFECT,
+	"SCALE_FACTORS": SCALE_INFORMATION[0],
+	"SCALE_DEFECT": SCALE_INFORMATION[1],
 
 	// Test whether a point is in the fundamental domain
 	// (coords in a fixed choice of eigenplane (i.e. the first))
