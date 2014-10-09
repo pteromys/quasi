@@ -72,6 +72,10 @@
 			var limit = Math.min(data.length, this.lod.num_verts);
 			for (var i = 0; i < limit; i++) {
 				window.lattice_helper.renderPoint(data[i], store);
+				var xt = store[0];
+				var yt = store[1];
+				store[0] = window.movable.cos * xt + window.movable.sin * yt;
+				store[1] = -window.movable.sin * xt + window.movable.cos * yt;
 				var d2 = window.movable.dotsize * Math.exp(-0.25 * store[2] / window.variance);
 				if (Math.abs(store[0]) - d2 > cull_x) { continue; }
 				if (Math.abs(store[1]) - d2 > cull_y) { continue; }
@@ -123,8 +127,8 @@
 			movable.movePan = function (x, y) {
 				var s = window.options.r /
 					(window.screen_radius * window.lattice_helper.scale[0]);
-				window.lattice_helper.offset[0] += x * s;
-				window.lattice_helper.offset[1] -= y * s;
+				window.lattice_helper.offset[0] += (x * this.cos + y * this.sin) * s;
+				window.lattice_helper.offset[1] -= (-x * this.sin + y * this.cos) * s;
 			};
 			movable.moveZoom = function (amount) {
 				if (this.is_hammer_busy && this.last_hammer_event) {
@@ -148,14 +152,17 @@
 			};
 			movable.move = function (dt) {
 				var s = 1 / window.lattice_helper.scale[0];
-				window.lattice_helper.offset[0] += this.velocity[0] * dt * s;
-				window.lattice_helper.offset[1] += this.velocity[1] * dt * s;
+				window.lattice_helper.offset[0] += (this.velocity[0] * this.cos - this.velocity[1] * this.sin) * dt * s;
+				window.lattice_helper.offset[1] += (this.velocity[0] * this.sin + this.velocity[1] * this.cos) * dt * s;
+				this.moveRotate(dt * this.velocity[2]);
 				this.moveZoom(dt * this.velocity[3]);
 			};
 			movable.moveAdjust = function () {
 				if (window.current_n == 2) {
 					window.lattice_helper.offset[1] = 0;
 				}
+				this.cos = Math.cos(this.position[2]);
+				this.sin = Math.sin(this.position[2]);
 				window.lattice_helper.zoomAdjust();
 				window.lattice_helper.recenter();
 			};

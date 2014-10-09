@@ -22,6 +22,10 @@ var MovableTouch = function () {
 	this.last_hammer_event = null;
 	this.is_hammer_busy = false;
 	this.zoom_center = null;
+	this.cos = 1;
+	this.sin = 0;
+	this.position[2] = this.position[3] = 0;
+	this.velocity[2] = this.velocity[3] = 0;
 };
 
 MovableTouch.prototype = Object.create(Movable.prototype);
@@ -101,14 +105,19 @@ MovableTouch.prototype = Object.create(Movable.prototype);
 		return Movable.prototype.isMoving.apply(this, arguments);
 	};
 	this.movePan = function (x, y) {
-		this.position[this.touch_map.pan_x.which] -= x;
-		this.position[this.touch_map.pan_y.which] -= y;
+		this.position[this.touch_map.pan_x.which] -= this.cos * x + this.sin * y;
+		this.position[this.touch_map.pan_y.which] -= -this.sin * x + this.cos * y;
 	};
 	this.moveRotate = function (angle) {
 		this.position[this.touch_map.rotate.which] += angle;
 	};
 	this.movePinch = function (scale) {
 		this.position[this.touch_map.pinch.which] += (1 - scale);
+	};
+	this.moveReset = function () {
+		Movable.prototype.moveReset.call(this);
+		this.cos = 1;
+		this.sin = 0;
 	};
 	this.touchEnd = function () {
 		this.last_hammer_event = null;
