@@ -95,8 +95,6 @@
 				this.scale = window.lattice_helper.scale[0];
 			};
 			m.moveAdjust = function () {
-				// Rezooming
-				window.lattice_helper.zoomAdjust();
 				// Viewpoint yoinging
 				var dist_extra = Math.sqrt(V.dot(this.uOriginExtra, this.uOriginExtra));
 				if ((!dist_extra) || (dist_extra <= 0.01)) {
@@ -106,6 +104,8 @@
 				} else {
 					this.uOriginExtra = V.scale(this.uOriginExtra, 0.95);
 				}
+				// Rezooming
+				window.lattice_helper.zoomAdjust();
 				// Recentering
 				window.lattice_helper.recenter();
 				// Synchronize lattice_helper and movable
