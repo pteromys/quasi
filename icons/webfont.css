@@ -1,0 +1,13 @@
+@font-face {
+    font-family: 'NutIcons-quasi';
+    src: url('quasi.eot');
+    src: url('quasi.eot?#iefix') format('embedded-opentype'),
+         url('quasi.woff') format('woff'),
+         url('quasi.ttf') format('truetype'),
+         url('quasi.svg#NutIcons') format('svg');
+    font-weight: normal;
+    font-style: normal;
+}
+
+/* Apply this font to the icon class. */
+.icon { font-family: NutIcons-quasi, sans; }
