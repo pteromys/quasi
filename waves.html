@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<title>Quasicrystalline Waves</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<script type="text/javascript" src="https://code.jquery.com/jquery-1.10.2.min.js"></script>
+	<script type="text/javascript" src="math.js"></script>
+	<script type="text/javascript" src="anima.min.js"></script>
+	<script type="text/javascript">
+		$(document).ready(function () {
+			var glc = new Anima.GL();
+			var N = parseInt(window.location.hash.slice(1)) || 5;
+			glc.setupCallback = function () {
+				var gl = this.gl;
+				gl.clearColor(0,0,0,0);
+				//gl.disable(gl.DEPTH_TEST);
+				//gl.disable(gl.BLEND);
+				this.vertex_buffer = gl.createBuffer();
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.vertex_buffer);
+				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+					1, 1, 0,
+					-1, 1, 0,
+					1, -1, 0,
+					-1, -1, 0,
+				]), gl.STATIC_DRAW);
+				this.uBasis = new Array(2 * N);
+				for (var i = 0; i < N; i++) {
+					this.uBasis[2*i] = Math.cos(2 * Math.PI * i / N);
+					this.uBasis[2*i + 1] = Math.sin(2 * Math.PI * i / N);
+				}
+				this.resize(500, 500);
+			};
+			glc.draw = function () {
+				var gl = glc.gl;
+				if (!gl) { return false; }
+				var prog = glc.shaders.main;
+				//gl.disable(gl.DEPTH_TEST);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				gl.useProgram(prog);
+				var pos = gl.getAttribLocation(prog, 'aVPosition');
+				gl.enableVertexAttribArray(pos);
+				gl.vertexAttribPointer(pos, 3, gl.FLOAT, false, 0, 0);
+				gl.uniform2fv(gl.getUniformLocation(prog, 'uBasis'), glc.uBasis);
+				gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+			};
+			glc.addProgram('main',
+				"attribute vec3 aVPosition; varying mediump vec2 vTexCoord;" +
+				"void main(void) { gl_Position = vec4(aVPosition, 1.0); vTexCoord = vec2(aVPosition); }",
+				"uniform mediump vec2 uBasis[" + N + "]; varying mediump vec2 vTexCoord;" +
+				"void main(void) {" +
+					"mediump float a = 0.0;" +
+					"for (int i = 0; i < " + N + "; i++) { a += cos(dot(uBasis[i], " + (10 * N).toFixed(2) + " * vTexCoord)); }" +
+					"a = a * " + 0.5/N + " + 0.5;" +
+					"gl_FragColor = vec4(vec3(a), 1.0);" +
+				"}");
+			glc.bindCanvas($('#main')[0]);
+			glc.draw();
+			$('#input_n').val(N);
+			$('#input_n').on('change', function (e) {
+				window.location.hash = '#' + $(this).val();
+				window.location.reload();
+			});
+		});
+		window.onerror = function (a, b, c) {
+			$('#errors').text($('#errors').text() + a + b + c);
+		};
+	</script>
+	<style type="text/css">
+		body { background: #666; }
+		#canvascontainer {
+			background: rgba(0, 0, 0, 1.0);
+			display: block; margin: 0em auto; position: relative;
+			width: 500px; height: 500px;
+		}
+		canvas {
+			background: rgba(0,0,0,0);
+			display: block; position: absolute; left: 0px; top: 0px;
+			z-index: 1;
+		}
+		#aform { text-align: center; }
+	</style>
+</head>
+<body>
+	<div id="canvascontainer">
+		<canvas width="300" height="300" id="main">
+			<img src="thumb-waves.jpg" alt="Preview" />
+			This page requires HTML5 Canvas support.
+		</canvas>
+	</div>
+	<div id="aform"><input type="text" id="input_n" /></div>
+	<div id="errors"></div>
+</body>
+</html>
+
+
