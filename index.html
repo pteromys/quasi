@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<title>Quasicrystals</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<style type="text/css">
+		body { background: #333; color: #fff; font-family: sans-serif, sans; }
+		h1 { text-align: center; font-weight: normal; font-family: serif; }
+		img { display: inline-block; vertical-align: middle; border: none; }
+		.demolist { margin: 0em; padding: 0em; list-style-type: none; text-align: center; }
+		.demolist > li { display: block; padding: 0.2em; }
+		.demolist > li > a {
+			display: inline-block; vertical-align: middle; position: relative;
+			width: 8em; height: 8em;
+			background-size: 100% 100%; background-size: cover;
+			opacity: 0.8;
+			color: #ccc;
+			border: 1px solid #999;
+			transition: opacity 0.2s, color 0.2s, border 0.2s;
+		}
+		.demolist > li > a:hover {
+			opacity: 1.0;
+			border: 1px solid #fff;
+			color: #fff;
+		}
+		.demolist > li > a > span {
+			display: block; position: absolute; bottom: 0.5em; left: 1em; right: 1em; text-align: center;
+			background: #000; background: rgba(0, 0, 0, 0.5);
+			font-weight: bold;
+			padding: 0.25em 0.5em;
+			border: 1px solid #fff;
+			border: 1px solid rgba(255, 255, 255, 0.5);
+		}
+		@media only screen and (min-aspect-ratio: 1/1) {
+			.demolist > li { display: inline-block; }
+		}
+		@media only screen and (max-aspect-ratio: 1/1) and (min-height: 32em) {
+			.demolist { font-size: 150%; }
+		}
+		@media only screen and (min-aspect-ratio: 1/1) and (min-width: 40em) {
+			.demolist { font-size: 140%; }
+		}
+		@media only screen and (min-aspect-ratio: 1/1) and (min-width: 50em) {
+			.demolist { font-size: 180%; }
+		}
+		@media only screen and (min-aspect-ratio: 1/1) and (min-width: 60em) {
+			.demolist { font-size: 220%; }
+		}
+	</style>
+</head>
+<body>
+	<h1>Quasicrystals</h1>
+	<ul class="demolist">
+		<li><a href="waves.html" style="background-image:url('thumb-waves.jpg');"><span>Waves</span></a>
+		</li><li><a href="2d.html" style="background-image:url('thumb-2d.png');"><span>2D</span></a>
+		</li><li><a href="3d.html" style="background-image:url('thumb-3d.png');"><span>3D</span></a></li>
+	</ul>
+</body>
+</html>
