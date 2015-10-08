@@ -148,7 +148,7 @@
 					window.movable.dotsize = data.dotsize;
 					window.frame_manager.requestFrame();
 					window.requestMorePoints((window.screen_radius || 512) / Math.sqrt(data.next_weight), data.next_radius);
-					console.log(data.source + ': ' + data.data.length + ' ' + data.next_weight + ' ' + data.next_radius);
+					window.message_box.post(data.source + ': ' + data.data.length + ' ' + data.next_weight + ' ' + data.next_radius, 'debug');
 				} else if (data.type == 'init') {
 					window.lattice_helper = new LatticeHelper(
 						data.dim_hidden + 2, 2, [], data.scale_factors);
@@ -198,7 +198,7 @@
 							((new Date()).valueOf() - start_time)/LIMIT_TIME,
 							(Math.min(LIMIT_SIZE/neighbor_size, 1) +
 							Math.min(distance_reached/LIMIT_DIST, 1.9)) / 2);
-						console.log(LIMIT_SIZE/neighbor_size, distance_reached/LIMIT_DIST);
+						window.message_box.post(LIMIT_SIZE/neighbor_size + ', ' + distance_reached/LIMIT_DIST, 'debug');
 						progress_bar.set(0.1 + progress * 0.8);
 						if (progress >= 1) {
 							finalized = true;

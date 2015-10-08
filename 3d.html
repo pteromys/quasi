@@ -511,6 +511,7 @@
 					window.lattice_helper.translators = data.translators;
 					movable.uFog[0] = 0.7 * data.next_weight;
 					requestMorePoints((glc.screen_diameter || 512) / Math.sqrt(data.next_weight));
+					window.message_box.post(data.source + ' ' + data.glData.length/66 + ' ' + data.next_weight, 'debug');
 				} else if (data.type == 'ready') {
 					window.lattice_helper = new LatticeHelper(
 						6, 3, [], data.scale_factors);
