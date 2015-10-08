@@ -4,7 +4,7 @@
 	<title>Quasicrystal 3D</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" type="text/css" href="icons/webfont.css" />
-	<link rel="stylesheet" type="text/css" href="interface.css" />
+	<link rel="stylesheet" type="text/css" href="umbra.css" />
 	<style type="text/css">
 		html, body {
 			width: 100%; height: 100%; margin: 0px; padding: 0px;
@@ -33,12 +33,9 @@
 	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
 	<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
 	<script type="text/javascript" src="hammer.min.js"></script>
+	<script type="text/javascript" src="umbra.min.js"></script>
+	<script type="text/javascript" src="anima.min.js"></script>
 	<script type="text/javascript" src="linear.js"></script>
-	<script type="text/javascript" src="motion.js"></script>
-	<script type="text/javascript" src="movabletouch.js"></script>
-	<script type="text/javascript" src="frames.js"></script>
-	<script type="text/javascript" src="interface.js"></script>
-	<script type="text/javascript" src="gl.js"></script>
 	<script type="text/javascript" src="latticehelper.js"></script>
 	<script type="text/javascript">
 		var awaitFlags = function (target_flags, func) {
@@ -64,41 +61,19 @@
 			context.fill();
 		};
 		var setupMovable = function () {
-			var m = new MovableTouch();
-			// set speeds
-			m.speed[0] = m.speed[1] = m.speed[2] = 0.001; // rotate about 1 rad/s
-			m.speed[3] = 0.001; // zoom about 4x per second
-			m.speed[4] = 0.002; // fly at 2 units per second
-			// invert y-axis
-			m.key_map[m.KEYS.DOWN].amount *= -1;
-			m.key_map[m.KEYS.UP].amount *= -1;
-			// flying
-			m.key_map['press'] = m.key_map[m.KEYS.SPACE] = {which: 4, amount: 1};
-			m.key_map[m.KEYS.Z] = {which: 4, amount: -1};
+			var m = new Anima.Movable3D();
 			m.uFog = [2, 1];
-			m.canAccelerate = function () {
-				return !($('.overlay').is(':target'));
-			};
-			m.isMovingSuper = m.isMoving;
 			m.isMoving = function () {
-				if (this.keys_down['press']) { return true; }
 				if (!(V.isZero(this.uOriginExtra))) { return true; }
-				return this.isMovingSuper();
+				return Anima.Movable3D.prototype.isMoving.call(this);
 			};
-			m.moveResetSuper = m.moveReset;
 			m.moveReset = function () {
-				this.moveResetSuper();
+				Anima.Movable3D.prototype.moveReset.call(this);
 				this.radius = this.radius || 2;
 				this.uDotSize = this.uDotSize || 0.2;
 				this.uVariance = this.uVariance || 0.4;
 				this.uOriginExtra = [0, 0, 0];
 				this.uFog[1] = 1;
-				this.uMVMatrix = [
-					[1,0,0,0],
-					[0,1,0,0],
-					[0,0,1,0],
-					[0,0,0,1]
-				];
 				this.uBTMatrix = [
 					[1,0,0,0],
 					[0,1,0,0],
@@ -109,45 +84,16 @@
 				$('#config_fog').prop('checked', true);
 				$('#config_fp').prop('checked', false);
 			};
-			m.moveTurn = function (yaw, pitch) {
-				yaw = yaw || 0;
-				pitch = pitch || 0;
-				var cxz = Math.cos(yaw);
-				var sxz = Math.sin(yaw);
-				var czy = Math.cos(pitch);
-				var szy = Math.sin(pitch);
-				this.uMVMatrix = M.mulMats([
-						[cxz,        0,    sxz,       0],
-						[-sxz * szy, czy,  cxz * szy, 0],
-						[-sxz * czy, -szy, cxz * czy, 0], // -this.radius,
-						[0,          0,    0,         1],
-				], this.uMVMatrix);
-			};
-			m.moveRoll = function (angle) {
-				angle = angle || 0;
-				var cxy = Math.cos(angle);
-				var sxy = Math.sin(angle);
-				this.uMVMatrix = M.mulMats([
-						[cxy, sxy, 0, 0],
-						[-sxy, cxy,  0, 0],
-						[0,   0,    1, 0],
-						[0,   0,    0, 1],
-					], this.uMVMatrix);
-			};
 			m.moveFly = function (distance) {
-				if (!distance) { return; }
-				var new_offset = V.add(
-					M.mul(M.transpose(this.uMVMatrix),
-						[0, 0, distance / window.lattice_helper.scale[0]]),
-					window.lattice_helper.offset.slice(0,3));
-				window.lattice_helper.offset.splice(0, 3,
-					new_offset[0], new_offset[1], new_offset[2]);
+				Anima.Movable3D.prototype.moveFly.call(this, distance);
+				for (var i = 0; i < 3; i++) {
+					window.lattice_helper.offset[i] = this.origin[i];
+				}
 			};
 			m.moveZoom = function (amount) {
 				window.lattice_helper.zoom(amount);
+				this.scale = window.lattice_helper.scale[0];
 			};
-			m.MAX_SCALE = 2 + Math.sqrt(5);
-			m.translators = [];
 			m.moveAdjust = function () {
 				// Rezooming
 				window.lattice_helper.zoomAdjust();
@@ -162,55 +108,18 @@
 				}
 				// Recentering
 				window.lattice_helper.recenter();
-			};
-			m.move = function (dt) {
-				// Rotation
-				if (this.keys_down['press']) {
-					var cx = $(window).width()/2;
-					var cy = $(window).height()/2;
-					var last = this.last_hammer_event;
-					if (last) {
-						this.velocity[0] = 0.002 * (last.center.x - cx) / this.screen_diameter || 0;
-						this.velocity[1] = 0.002 * (last.center.y - cy) / this.screen_diameter || 0;
-					}
+				// Synchronize lattice_helper and movable
+				for (var i = 0; i < 3; i++) {
+					this.origin[i] = window.lattice_helper.offset[i];
 				}
-				var yaw = this.velocity[0] * dt;
-				var pitch = -this.velocity[1] * dt;
-				var roll = this.velocity[2] * dt;
-				this.moveTurn(yaw, pitch);
-				this.moveRoll(roll);
-				// Translation
-				this.moveFly(dt * this.velocity[4]);
-				// Zooming
-				this.moveZoom(dt * this.velocity[3]);
+				this.scale = window.lattice_helper.scale[0];
 			};
 			m.moveReset();
-			m.movePan = function (x, y) {
-				if (!this.keys_down['press']) {
-					this.moveTurn(-1.5 * x / this.screen_diameter,
-						1.5 * y / this.screen_diameter);
-				}
-			};
-			m.moveRotate = m.moveRoll;
-			m.movePinch = function (factor) {
-				this.moveZoom(Math.log(factor));
-			}
-			var superTouchEnd = m.touchEnd;
-			m.touchEnd = function () {
-				superTouchEnd.call(this);
-				this.keys_down['press'] = false;
-			};
 			m.bindKeyboard(window);
 			m.bindTouch($('#main'));
 			var h = m.hammer;
-			h.add(new Hammer.Press({threshold: 10}).recognizeWith(h.get('pan')));
 			h.add(new Hammer.Tap({event: 'tripletap', taps: 3, posThreshold: 20}).recognizeWith(h.get('pan')));
 			h.add(new Hammer.Tap({event: 'doubletap', taps: 2, posThreshold: 20}).recognizeWith(h.get('pan')).requireFailure(h.get('tripletap')));
-			h.on('press', function (e) {
-				m.keys_down['press'] = true;
-				m.decay_rate = m.decay_coast;
-				m.motionCallback();
-			});
 			h.on('doubletap', function (e) {
 				var i = window.glc.pick(
 					e.center.x/$(window).width(),
@@ -224,9 +133,9 @@
 					window.movable.uOriginExtra, V.add(
 					window.lattice_helper.offset,
 					new_origin));
-				window.lattice_helper.offset[0] = -new_origin[0];
-				window.lattice_helper.offset[1] = -new_origin[1];
-				window.lattice_helper.offset[2] = -new_origin[2];
+				for (var j = 0; j < 3; j++) {
+					window.lattice_helper.offset[j] = window.movable.origin[j] = -new_origin[j];
+				}
 				window.movable.velocity[4] = 0;
 				window.frame_manager.requestFrame();
 			});
@@ -248,7 +157,7 @@
 				// Animate transition
 				window.movable.uOriginExtra = V.add(
 					window.movable.uOriginExtra,
-					M.mul(M.transpose(window.movable.uMVMatrix),
+					M.mul(M.transpose(window.movable.rotation),
 						[0, 0, r]));
 				window.frame_manager.requestFrame();
 			});
@@ -271,12 +180,12 @@
 
 		$(document).ready(function () {
 			// MessageBox
-			window.message_box = new MessageBox('#messages');
+			window.message_box = Umbra.MessageBox('messages');
 			// Motion
 			window.movable = setupMovable();
 			setupForm();
 			// Animation
-			var glc = new GLWrapper();
+			var glc = new Anima.GL();
 			// Set up
 			glc.glData = new Float32Array([]);
 			glc.mem_limit = undefined;
@@ -338,11 +247,13 @@
 				this.resize($(window).innerWidth(), $(window).innerHeight());
 			};
 			glc.resizeCallback = function (w, h) {
+				window.movable.setScreenCenter($('#main'));
 				window.movable.screen_diameter = this.screen_diameter = Math.sqrt(w*w + h*h);
-				var ir = 1.5/this.screen_diameter;
-				window.movable.touch_map.pan_x.speed = -ir;
-				window.movable.touch_map.pan_y.speed = -ir;
-				this.uPMatrix = M.fromGL4(this.projectionMatrix(ir*w, ir*h, 0.1, 1000));
+				var ir = window.movable.units_per_px = 3/this.screen_diameter;
+				window.movable.touch_map.pan_x.amount = -ir;
+				window.movable.touch_map.pan_y.amount = -ir;
+				this.setProjectionMatrix(ir*w/2, ir*h/2, 0.1, 1000);
+				this.uPMatrix = M.fromGL4(this.projection_matrix);
 				window.frame_manager.requestFrame();
 			};
 			glc.prepareDrawData = function (prog) {
@@ -367,12 +278,12 @@
 				// Set uniforms
 				gl.uniformMatrix4fv(
 					gl.getUniformLocation(prog, 'uPMatrix'),
-					false, M.toGL4(this.uPMatrix));
+					false, this.projection_matrix);
 				gl.uniformMatrix4fv(
 					gl.getUniformLocation(prog, 'uMVMatrix'),
 					false, M.toGL4(
 						M.mulMats(window.movable.uBTMatrix,
-							window.movable.uMVMatrix))
+							window.movable.rotation))
 					);
 				gl.uniform2f(gl.getUniformLocation(prog, 'uScale'),
 					window.lattice_helper.scale[0], window.lattice_helper.scale[3]);
@@ -442,7 +353,7 @@
 					var c2 = $('#emulation')[0].getContext('2d');
 					c2.globalCompositeOperation = 'lighter';
 					var m = M.mulMats(glc.uPMatrix,
-						M.mulMats(window.movable.uBTMatrix, window.movable.uMVMatrix));
+						M.mulMats(window.movable.uBTMatrix, window.movable.rotation));
 					var uo = V.add(window.lattice_helper.offset,
 						window.movable.uOriginExtra);
 					var usc = window.lattice_helper.scale[3];
@@ -504,7 +415,7 @@
 				})();
 				return last_id + 1;
 			};
-			window.frame_manager = new FrameManager(glc.draw);
+			window.frame_manager = new Anima.FrameManager(glc.draw);
 			window.frame_manager.addLOD('realtime', {
 				frame_min: 8, frame_max: 16, num_verts: 50,
 			});

@@ -4,7 +4,7 @@
 	<title>Quasicrystals</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" type="text/css" href="icons/webfont.css" />
-	<link rel="stylesheet" type="text/css" href="interface.css" />
+	<link rel="stylesheet" type="text/css" href="umbra.css" />
 	<style type="text/css">
 		html, body {
 			width: 100%; height: 100%; margin: 0px; padding: 0px;
@@ -29,12 +29,9 @@
 	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
 	<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
 	<script type="text/javascript" src="hammer.min.js"></script>
+	<script type="text/javascript" src="umbra.min.js"></script>
+	<script type="text/javascript" src="anima.min.js"></script>
 	<script type="text/javascript" src="linear.js"></script>
-	<script type="text/javascript" src="heap.js"></script>
-	<script type="text/javascript" src="motion.js"></script>
-	<script type="text/javascript" src="movabletouch.js"></script>
-	<script type="text/javascript" src="frames.js"></script>
-	<script type="text/javascript" src="interface.js"></script>
 	<script type="text/javascript" src="latticehelper.js"></script>
 	<script type="text/javascript">
 		var fillCircle = function (context, x, y, r) {
@@ -46,10 +43,12 @@
 		var draw = function () {
 			window.movable.update(this.dt);
 			if (!window.lattice_helper) { return; }
+			window.movable.moveAdjust();
 			// Set up context
 			var canvas = $('#main')[0];
 			var w = canvas.width = $(window).width();
 			var h = canvas.height = $(window).height();
+			window.movable.setScreenCenter(canvas);
 			var context = canvas.getContext('2d');
 			var data = window.current_data;
 			context.save();
@@ -86,7 +85,6 @@
 				context.restore();
 			}
 			context.restore();
-			window.movable.moveAdjust();
 			this.adjustLOD();
 			return window.movable.isMoving();
 		};
@@ -102,69 +100,43 @@
 			r: 5,
 		};
 		$(document).ready(function () {
-			window.message_box = new MessageBox('#messages');
-			window.movable = new MovableTouch();
+			window.message_box = Umbra.MessageBox('messages');
+			window.movable = new Anima.Movable2D();
 			// We flip the y axis because mathematicians like the y axis up
 			// Then we flip both axes again to use position subtractively
 			// The result is to invert the x axis.
-			movable.key_map[movable.KEYS.LEFT].amount *= -1;
-			movable.key_map[movable.KEYS.RIGHT].amount *= -1;
-			movable.touch_map.pan_x.speed = 1;
-			movable.canAccelerate = function () {
-				return !($('.overlay').is(':target'));
-			};
+			movable.key_map[Anima.KEYS.LEFT].amount *= -1;
+			movable.key_map[Anima.KEYS.RIGHT].amount *= -1;
+			movable.key_map[Anima.KEYS.UP].amount *= -1;
+			movable.key_map[Anima.KEYS.DOWN].amount *= -1;
+			movable.touch_map.pan_x.amount = 1;
+			movable.touch_map.pan_y.amount = 1;
 			movable.bindKeyboard(window);
 			movable.bindTouch($('#main'));
-			movable.speed[0] = movable.speed[1] = 0.002; // move 2 units/sec
-			movable.speed[2] = 0.001; // rotate 1 rad/sec
-			movable.speed[3] = 0.001; // zoom about 4x per sec
-			movable.translators = [];
 			var superMoveReset = movable.moveReset;
 			movable.moveReset = function () {
 				superMoveReset.call(this);
 				if (window.lattice_helper) { window.lattice_helper.reset(); }
 			};
-			movable.movePan = function (x, y) {
-				var s = window.options.r /
-					(window.screen_radius * window.lattice_helper.scale[0]);
-				window.lattice_helper.offset[0] += (x * this.cos + y * this.sin) * s;
-				window.lattice_helper.offset[1] -= (-x * this.sin + y * this.cos) * s;
-			};
 			movable.moveZoom = function (amount) {
-				if (this.is_hammer_busy && this.last_hammer_event) {
-					this.zoom_center = [
-						this.last_hammer_event.center.x,
-						this.last_hammer_event.center.y,
-					];
-				}
-				var cx = 0;
-				var cy = 0;
-				if (this.zoom_center) {
-					cx = this.zoom_center[0] - $(window).width() / 2;
-					cy = this.zoom_center[1] - $(window).height() / 2;
-				}
-				this.movePan(-cx, -cy);
 				window.lattice_helper.zoom(amount);
-				this.movePan(cx, cy);
+				this.scale = window.lattice_helper.scale[0];
 			};
-			movable.movePinch = function (factor) {
-				this.moveZoom(Math.log(factor));
-			};
-			movable.move = function (dt) {
-				var s = 1 / window.lattice_helper.scale[0];
-				window.lattice_helper.offset[0] += (this.velocity[0] * this.cos - this.velocity[1] * this.sin) * dt * s;
-				window.lattice_helper.offset[1] += (this.velocity[0] * this.sin + this.velocity[1] * this.cos) * dt * s;
-				this.moveRotate(dt * this.velocity[2]);
-				this.moveZoom(dt * this.velocity[3]);
+			var superMovePan = movable.movePan;
+			movable.movePan = function (x, y) {
+				superMovePan.call(this, x, y);
+				var lh = window.lattice_helper;
+				lh.offset[0] = this.position[0];
+				lh.offset[1] = -this.position[1];
 			};
 			movable.moveAdjust = function () {
-				if (window.current_n == 2) {
-					window.lattice_helper.offset[1] = 0;
-				}
-				this.cos = Math.cos(this.position[2]);
-				this.sin = Math.sin(this.position[2]);
-				window.lattice_helper.zoomAdjust();
-				window.lattice_helper.recenter();
+				var lh = window.lattice_helper;
+				if (window.current_n == 2) { lh.offset[1] = 0; }
+				lh.zoomAdjust();
+				lh.recenter();
+				this.position[0] = lh.offset[0];
+				this.position[1] = -lh.offset[1];
+				this.scale = lh.scale[0];
 			};
 			window.renderWorker = new Worker('projector.js');
 			window.renderWorker.onmessage = function (e) {
@@ -243,7 +215,7 @@
 				resetZoom();
 				resizeCallback();
 			};
-			window.frame_manager = new FrameManager(draw);
+			window.frame_manager = new Anima.FrameManager(draw);
 			window.frame_manager.upLOD = function () {
 				if (this.lod.num_verts < window.current_data.length) {
 					this.lod.num_verts = Math.min(window.current_data.length,
@@ -265,9 +237,9 @@
 				var r = window.screen_radius =
 					Math.sqrt(window.innerWidth * window.innerWidth +
 					window.innerHeight * window.innerHeight)/2;
-				var s = window.options.r / r;
-				window.movable.touch_map.pan_x.speed = s;
-				window.movable.touch_map.pan_y.speed = -s;
+				var s = window.movable.units_per_px = window.options.r / r;
+				window.movable.touch_map.pan_x.amount = s;
+				window.movable.touch_map.pan_y.amount = s;
 				window.frame_manager.requestFrame();
 			};
 			movable.motionCallback = function () {
@@ -275,9 +247,9 @@
 			};
 			$(window).on('resize', resizeCallback);
 			// Activate the form
-			var replacement_form = new ActiveForm($('#form_config'));
+			var replacement_form = new Umbra.Form($('#form_config'));
 			replacement_form.field_processors.n = function (field) {
-				var ans = ActiveForm.numericProcessor(field);
+				var ans = Umbra.Form.numericProcessor(field);
 				if (ans[0]) { return ans; }
 				if (ans[1] < 2) { return [true, 'Enter a number at least 2.']; }
 				if (ans[1] > DEGREE_LIMIT) { return [true,
@@ -312,7 +284,7 @@
 	</div></div>
 	<div id="help" class="overlay">
 		<div class="box">
-			<a class="button icon button_close button_rightmargin"
+			<a class="button icon button_close"
 				title="Close" href="#">&times;</a>
 			<h2>Help</h2>
 			<p><a href="#help_about">What am I seeing here?</a></p>
@@ -332,9 +304,9 @@
 	</div>
 	<div id="help_about" class="overlay">
 		<div class="box">
-			<a class="button icon button_leftmargin"
+			<a class="button icon button_back"
 				title="Back" href="#help">&laquo;</a>
-			<a class="button icon button_close button_rightmargin"
+			<a class="button icon button_close"
 				title="Close" href="#">&times;</a>
 			<h2>About</h2>
 			<p>This page draws
@@ -366,9 +338,9 @@
 	</div>
 	<div id="help_dimension" class="overlay">
 		<div class="box">
-			<a class="button icon button_leftmargin"
+			<a class="button icon button_back"
 				title="Back" href="#help_about">&laquo;</a>
-			<a class="button icon button_close button_rightmargin"
+			<a class="button icon button_close"
 				title="Close" href="#">&times;</a>
 			<h2>Dimension</h2>
 			<p>A rotation preserving a lattice can be written as an
@@ -385,9 +357,9 @@
 	</div>
 	<div id="help_zooming" class="overlay">
 		<div class="box">
-			<a class="button icon button_leftmargin"
+			<a class="button icon button_back"
 				title="Back" href="#help_about">&laquo;</a>
-			<a class="button icon button_close button_rightmargin"
+			<a class="button icon button_close"
 				title="Close" href="#">&times;</a>
 			<h2>Zooming</h2>
 			<p>To keep the number of dots drawn roughly constant,
