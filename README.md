@@ -2,6 +2,8 @@
 
 ## Hey, watch this!
 
+![A looping gif of zooming in on a 2D quasicrystal](2d.gif)
+
 * [Live demo](http://pteromys.melonisland.net/quasi/)
 * [Pizza Seminar notes](http://pteromys.melonisland.net/w/2015/quasi/)
 
