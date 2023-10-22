@@ -2,12 +2,12 @@
 
 ## Hey, watch this!
 
-![A looping gif of zooming in on a 2D quasicrystal](2d.gif)
-
-https://github.com/pteromys/quasi/assets/380280/13e239aa-1f5b-44b4-b7f3-44a110fc8359
-
 * [Live demo](http://pteromys.melonisland.net/quasi/)
 * [Pizza Seminar notes](http://pteromys.melonisland.net/w/2015/quasi/)
+
+![A looping gif of zooming in on a 2D quasicrystal](2d.gif)
+
+https://github.com/pteromys/quasi/assets/380280/bfff0cfa-c767-4f40-b764-3d2bc16b3188
 
 ## Prior Art
 
